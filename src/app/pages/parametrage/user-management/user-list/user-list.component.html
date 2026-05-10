@@ -1,0 +1,101 @@
+<div class="space-y-6">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">User Management</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Admin-only access to users, roles, and filiales.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
+      (click)="openCreateForm()"
+    >
+      Add user
+    </button>
+  </div>
+
+  @if (showForm) {
+    <app-user-form
+      [selectedUser]="selectedUser"
+      [isSaving]="isSaving"
+      [errorMessage]="formErrorMessage"
+      (cancel)="closeForm()"
+      (createUser)="createUser($event)"
+      (updateUser)="updateUser($event)"
+    />
+  }
+
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+    <div class="border-b border-gray-100 px-5 py-4 dark:border-white/[0.05]">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Users</h2>
+    </div>
+
+    @if (isLoading) {
+      <div class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+        Loading users...
+      </div>
+    } @else if (errorMessage) {
+      <div class="m-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+        {{ errorMessage }}
+      </div>
+    } @else if (users.length === 0) {
+      <div class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+        No users found.
+      </div>
+    } @else {
+      <div class="max-w-full overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="border-b border-gray-100 dark:border-white/[0.05]">
+            <tr>
+              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">User</th>
+              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Role</th>
+              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Filiale</th>
+              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Phone</th>
+              <th class="px-5 py-3 font-medium text-gray-500 text-end text-theme-xs dark:text-gray-400">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-white/[0.05]">
+            @for (user of users; track user.userId) {
+              <tr>
+                <td class="px-5 py-4 sm:px-6 text-start">
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                      {{ initials(user) }}
+                    </div>
+                    <div>
+                      <span class="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                        {{ user.prenom }} {{ user.nom }}
+                      </span>
+                      <span class="block text-gray-500 text-theme-xs dark:text-gray-400">
+                        {{ user.email }}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                  {{ user.role || '-' }}
+                </td>
+                <td class="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                  {{ user.filiale || '-' }}
+                </td>
+                <td class="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                  {{ user.telephone || '-' }}
+                </td>
+                <td class="px-4 py-3 text-end">
+                  <button
+                    type="button"
+                    class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+                    (click)="openEditForm(user)"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

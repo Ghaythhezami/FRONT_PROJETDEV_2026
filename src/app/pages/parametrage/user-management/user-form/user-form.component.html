@@ -1,0 +1,120 @@
+<form class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6" (ngSubmit)="submit()">
+  <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
+        {{ isEditing() ? 'Edit user' : 'Add user' }}
+      </h3>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Manage access for Agile AI users.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+      (click)="cancel.emit()"
+    >
+      Close
+    </button>
+  </div>
+
+  @if (errorMessage) {
+    <div class="mb-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+      {{ errorMessage }}
+    </div>
+  }
+
+  <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Last name</span>
+      <input
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        name="nom"
+        [(ngModel)]="form.nom"
+        required
+      />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">First name</span>
+      <input
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        name="prenom"
+        [(ngModel)]="form.prenom"
+        required
+      />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Email</span>
+      <input
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        type="email"
+        name="email"
+        [(ngModel)]="form.email"
+        required
+      />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+        Password {{ isEditing() ? '(leave empty to keep current)' : '' }}
+      </span>
+      <input
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        type="password"
+        name="password"
+        [(ngModel)]="form.password"
+        [required]="!isEditing()"
+      />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Phone</span>
+      <input
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        name="telephone"
+        [(ngModel)]="form.telephone"
+      />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Role</span>
+      <select
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        name="role"
+        [(ngModel)]="form.role"
+        required
+      >
+        @for (role of roles; track role) {
+          <option [value]="role">{{ role }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="block lg:col-span-2">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Filiale</span>
+      <input
+        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        name="filiale"
+        [(ngModel)]="form.filiale"
+      />
+    </label>
+  </div>
+
+  <div class="mt-6 flex justify-end gap-3">
+    <button
+      type="button"
+      class="rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+      (click)="cancel.emit()"
+    >
+      Cancel
+    </button>
+    <button
+      type="submit"
+      class="rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+      [disabled]="isSaving"
+    >
+      {{ isSaving ? 'Saving...' : (isEditing() ? 'Save changes' : 'Create user') }}
+    </button>
+  </div>
+</form>
