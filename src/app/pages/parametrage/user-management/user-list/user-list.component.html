@@ -1,9 +1,11 @@
 <div class="space-y-6">
+  <app-page-breadcrumb pageTitle="User management" />
+
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">User Management</h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Admin-only access to users, roles, and filiales.
+        Admin-only — paginated list (10 per page) with search and infinite scroll.
       </p>
     </div>
     <button
@@ -28,18 +30,23 @@
 
   <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
     <div class="border-b border-gray-100 px-5 py-4 dark:border-white/[0.05]">
-      <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Users</h2>
+      <app-search-toolbar
+        placeholder="Search users…"
+        [total]="store.total()"
+        totalLabel="users"
+        (searchChange)="onSearch($event)"
+      />
     </div>
 
-    @if (isLoading) {
+    @if (store.loading() && !store.items().length) {
       <div class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-        Loading users...
+        Loading users…
       </div>
-    } @else if (errorMessage) {
+    } @else if (store.error()) {
       <div class="m-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
-        {{ errorMessage }}
+        {{ store.error() }}
       </div>
-    } @else if (users.length === 0) {
+    } @else if (store.isEmpty()) {
       <div class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
         No users found.
       </div>
@@ -56,7 +63,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            @for (user of users; track user.userId) {
+            @for (user of store.items(); track user.userId) {
               <tr>
                 <td class="px-5 py-4 sm:px-6 text-start">
                   <div class="flex items-center gap-3">
@@ -96,6 +103,18 @@
           </tbody>
         </table>
       </div>
+      <div
+        appInfiniteScroll
+        [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
+        (appInfiniteScroll)="store.loadMore()"
+      ></div>
+      <app-load-more-footer
+        [loading]="store.loadingMore()"
+        [hasMore]="store.hasMore()"
+        [shown]="store.items().length"
+        [total]="store.total()"
+        (loadMore)="store.loadMore()"
+      />
     }
   </div>
 </div>

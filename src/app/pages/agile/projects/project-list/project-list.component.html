@@ -1,0 +1,132 @@
+<div class="space-y-6">
+  <app-page-breadcrumb pageTitle="Projects" />
+
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Projects</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Manage your agile workspaces with paginated search (10 per page).
+      </p>
+    </div>
+    <button
+      type="button"
+      class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white hover:bg-brand-600"
+      (click)="showCreateModal.set(true)"
+    >
+      New project
+    </button>
+  </div>
+
+  @if (showCreateModal()) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      (click)="showCreateModal.set(false)"
+    >
+      <div
+        class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900"
+        (click)="$event.stopPropagation()"
+      >
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Create project</h2>
+        <form class="mt-4 space-y-4" (ngSubmit)="createProject()">
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+            <input
+              class="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
+              [(ngModel)]="newProject.projectName"
+              name="projectName"
+              required
+            />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Key</label>
+            <input
+              class="h-11 w-full rounded-lg border border-gray-300 px-4 text-sm uppercase dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
+              [(ngModel)]="newProject.key"
+              name="key"
+              maxlength="12"
+              pattern="[A-Za-z0-9_-]+"
+              required
+            />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+            <textarea
+              class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
+              rows="3"
+              [(ngModel)]="newProject.projectDescription"
+              name="description"
+            ></textarea>
+          </div>
+          @if (createError()) {
+            <p class="text-sm text-error-600">{{ createError() }}</p>
+          }
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700"
+              (click)="showCreateModal.set(false)"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+              [disabled]="isCreating()"
+            >
+              {{ isCreating() ? 'Creating…' : 'Create' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <div class="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+    <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
+      <app-search-toolbar
+        placeholder="Search projects…"
+        [total]="store.total()"
+        totalLabel="projects"
+        (searchChange)="onSearch($event)"
+      />
+    </div>
+
+    @if (store.loading() && !store.items().length) {
+      <div class="py-16 text-center text-sm text-gray-500">Loading…</div>
+    } @else if (store.error()) {
+      <div class="m-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600">
+        {{ store.error() }}
+      </div>
+    } @else {
+      <div class="divide-y divide-gray-100 dark:divide-white/[0.05]">
+        @for (project of store.items(); track project.id) {
+          <a
+            [routerLink]="['/projects', project.id]"
+            class="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+          >
+            <div>
+              <span class="text-xs font-semibold uppercase text-brand-600">{{ project.key }}</span>
+              <h3 class="font-medium text-gray-800 dark:text-white/90">{{ project.projectName }}</h3>
+              <p class="text-sm text-gray-500 line-clamp-1">{{ project.projectDescription || '—' }}</p>
+            </div>
+            <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        }
+      </div>
+      <div
+        appInfiniteScroll
+        [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
+        (appInfiniteScroll)="store.loadMore()"
+      ></div>
+      <app-load-more-footer
+        [loading]="store.loadingMore()"
+        [hasMore]="store.hasMore()"
+        [shown]="store.items().length"
+        [total]="store.total()"
+        (loadMore)="store.loadMore()"
+      />
+    }
+  </div>
+</div>

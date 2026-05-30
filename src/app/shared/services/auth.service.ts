@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { Observable, map, switchMap, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
+import { RegisterUserDto } from './user-management.models';
 import {
   AuthTokens,
   AuthUser,
@@ -32,6 +33,52 @@ export class AuthService {
 
   get accessToken(): string | null {
     return this.readStorage(ACCESS_TOKEN_KEY);
+  }
+
+  get refreshToken(): string | null {
+    return this.readStorage(REFRESH_TOKEN_KEY);
+  }
+
+  refreshAccessToken(): Observable<AuthTokens> {
+    const refreshToken = this.refreshToken;
+    if (!refreshToken) {
+      throw new Error('No refresh token');
+    }
+    return this.http.post<TokenApiDto>(`${this.apiUrl}/refresh`, { RefreshToken: refreshToken }).pipe(
+      map((tokens) => this.normalizeTokens(tokens)),
+      tap((tokens) => {
+        const storage = localStorage.getItem(ACCESS_TOKEN_KEY) ? localStorage : sessionStorage;
+        storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+        storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+      }),
+    );
+  }
+
+  getUsers(query?: { page?: number; limit?: number }): Observable<AuthUser[]> {
+    const params: Record<string, string> = {};
+    if (query?.page) {
+      params['page'] = String(query.page);
+    }
+    if (query?.limit) {
+      params['limit'] = String(query.limit ?? 10);
+    }
+    return this.http
+      .get<UserResponseDto[]>(this.apiUrl, { params })
+      .pipe(map((users) => users.map((u) => this.normalizeUser(u))));
+  }
+
+  register(user: RegisterUserDto): Observable<AuthUser> {
+    return this.http
+      .post<{ user?: UserResponseDto } | UserResponseDto>(`${this.apiUrl}/register`, user)
+      .pipe(
+        map((response) => {
+          const dto =
+            response && typeof response === 'object' && 'user' in response
+              ? (response.user ?? {})
+              : (response as UserResponseDto);
+          return this.normalizeUser(dto);
+        }),
+      );
   }
 
   login(email: string, password: string, rememberMe: boolean): Observable<AuthUser> {

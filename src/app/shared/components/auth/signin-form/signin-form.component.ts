@@ -5,7 +5,7 @@ import { CheckboxComponent } from '../../form/input/checkbox.component';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { InputFieldComponent } from '../../form/input/input-field.component';
 import { RouterModule } from '@angular/router';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
 
@@ -35,7 +35,13 @@ export class SigninFormComponent {
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
-  ) {}
+    private readonly route: ActivatedRoute,
+  ) {
+    const prefillEmail = this.route.snapshot.queryParamMap.get('email');
+    if (prefillEmail) {
+      this.email = prefillEmail;
+    }
+  }
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;

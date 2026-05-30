@@ -1,0 +1,80 @@
+<div class="space-y-6">
+  <app-page-breadcrumb pageTitle="Sprint board" />
+
+  @if (isLoading()) {
+    <div class="py-16 text-center text-sm text-gray-500">Loading board…</div>
+  } @else if (errorMessage()) {
+    <div class="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600">
+      {{ errorMessage() }}
+    </div>
+  } @else {
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white/90">Sprint board</h1>
+        <p class="text-sm text-gray-500">Drag cards between columns · PATCH /api/Issues/{{ '{id}' }}/move</p>
+      </div>
+      @if (actionMessage()) {
+        <p class="text-sm text-brand-600">{{ actionMessage() }}</p>
+      }
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.02]">
+      <h3 class="mb-3 text-sm font-semibold text-gray-800 dark:text-white/90">Add task to board</h3>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <select
+          class="h-11 flex-1 rounded-lg border border-gray-300 px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+          [(ngModel)]="newIssueStoryId"
+        >
+          <option value="">Select user story…</option>
+          @for (story of sprintStories(); track story.id) {
+            <option [value]="story.id">{{ story.title }}</option>
+          }
+        </select>
+        <input
+          class="h-11 flex-1 rounded-lg border border-gray-300 px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+          placeholder="Task title"
+          [(ngModel)]="newIssueTitle"
+        />
+        <button
+          type="button"
+          class="h-11 rounded-lg bg-brand-500 px-5 text-sm font-medium text-white hover:bg-brand-600"
+          (click)="createIssue()"
+        >
+          Add task
+        </button>
+      </div>
+    </div>
+
+    <div class="flex gap-4 overflow-x-auto pb-4">
+      @for (column of columns(); track column.status) {
+        <div
+          class="min-w-[300px] flex-1 rounded-2xl p-3"
+          [ngClass]="columnUi[column.status].columnBg"
+          (dragover)="onDragOver($event)"
+          (drop)="onDrop($event, column.status)"
+        >
+          <div class="mb-3 flex items-center justify-between px-1">
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full" [ngClass]="columnUi[column.status].dot"></span>
+              <h2 class="text-sm font-semibold text-gray-800">{{ columnUi[column.status].label }}</h2>
+              <span class="rounded-full bg-white/80 px-2 py-0.5 text-xs text-gray-600">
+                {{ column.issues.length }}
+              </span>
+            </div>
+            <button type="button" class="text-gray-400 hover:text-gray-600" aria-label="Column menu">⋯</button>
+          </div>
+
+          <div class="space-y-3 min-h-[420px]">
+            @for (issue of column.issues; track issue.id) {
+              <app-kanban-card
+                [issue]="issue"
+                [dragging]="movingIssueId() === issue.id"
+                (dragStart)="onDragStart($event, issue)"
+              />
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

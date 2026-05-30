@@ -3,7 +3,10 @@
   "version": "1.0.3",
   "scripts": {
     "ng": "ng",
+    "env": "node scripts/generate-env.mjs",
+    "prestart": "node scripts/generate-env.mjs",
     "start": "ng serve",
+    "prebuild": "node scripts/generate-env.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"

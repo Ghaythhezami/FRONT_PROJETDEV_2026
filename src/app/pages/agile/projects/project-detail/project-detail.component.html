@@ -1,0 +1,167 @@
+<div class="space-y-6">
+  <app-page-breadcrumb [pageTitle]="project()?.projectName ?? 'Project'" />
+
+  @if (isLoadingProject()) {
+    <div class="py-12 text-center text-sm text-gray-500">Loading…</div>
+  } @else if (projectError()) {
+    <div class="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600">{{ projectError() }}</div>
+  } @else if (project(); as p) {
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <span class="text-xs font-semibold uppercase text-brand-600">{{ p.key }}</span>
+        <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ p.projectName }}</h1>
+        <p class="mt-1 text-sm text-gray-500">{{ p.projectDescription || '—' }}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a [routerLink]="['/projects', projectId, 'backlog']" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700">Backlog</a>
+        <button type="button" class="rounded-lg border border-warning-300 px-4 py-2.5 text-sm text-warning-700" (click)="finalizeProject()">Finalize project</button>
+      </div>
+    </div>
+    @if (finalizeMessage()) {
+      <p class="text-sm text-brand-600">{{ finalizeMessage() }}</p>
+    }
+
+    <nav class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-white/[0.05]">
+      @for (tab of ['overview', 'sprints', 'members', 'activity', 'ai']; track tab) {
+        <button
+          type="button"
+          class="border-b-2 px-4 py-2.5 text-sm font-medium capitalize"
+          [class.border-brand-500]="activeTab() === tab"
+          [class.text-brand-600]="activeTab() === tab"
+          [class.border-transparent]="activeTab() !== tab"
+          [class.text-gray-500]="activeTab() !== tab"
+          (click)="setTab($any(tab))"
+        >
+          {{ tab }}
+        </button>
+      }
+    </nav>
+
+    @if (activeTab() === 'overview') {
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <h3 class="font-semibold text-gray-800 dark:text-white/90">Active sprint</h3>
+          @if (activeSprint(); as s) {
+            <p class="mt-2 text-sm">{{ s.name }}</p>
+            <a [routerLink]="['/sprints', s.id, 'board']" class="mt-2 inline-block text-sm text-brand-600">Open board →</a>
+          } @else {
+            <p class="mt-2 text-sm text-gray-500">No active sprint</p>
+          }
+        </div>
+        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <h3 class="font-semibold">Team workload</h3>
+          <ul class="mt-2 space-y-2 text-sm">
+            @for (w of workload(); track w.memberId) {
+              <li class="flex justify-between"><span>{{ w.memberName }}</span><span>{{ w.assignedIssues }} open / {{ w.completedIssues }} done</span></li>
+            } @empty { <li class="text-gray-500">No data</li> }
+          </ul>
+        </div>
+        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <h3 class="font-semibold">Velocity</h3>
+          <ul class="mt-2 space-y-1 text-sm">
+            @for (v of velocity(); track v.sprintName) {
+              <li>{{ v.sprintName }}: {{ v.completedPoints }} pts</li>
+            } @empty { <li class="text-gray-500">No data</li> }
+          </ul>
+        </div>
+        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <h3 class="font-semibold">Blocked / overdue</h3>
+          <p class="mt-2 text-sm text-gray-500">{{ blockedItems().length }} items (page 1)</p>
+        </div>
+      </div>
+    }
+
+    @if (activeTab() === 'sprints') {
+      <div class="rounded-xl border border-gray-200 dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div class="border-b p-5">
+          <app-search-toolbar placeholder="Search sprints…" [total]="sprintStore.total()" totalLabel="sprints" (searchChange)="onSprintSearch($event)" />
+          @if (sprintActionError()) {
+            <p class="mt-2 text-sm text-error-600">{{ sprintActionError() }}</p>
+          }
+          <form class="mt-4 grid gap-3 sm:grid-cols-4" (ngSubmit)="createSprint()">
+            <input class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Sprint name" [(ngModel)]="newSprint.Name" name="sprintName" />
+            <input type="datetime-local" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="newSprint.StartDate" name="start" />
+            <input type="datetime-local" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="newSprint.EndDate" name="end" />
+            <button type="submit" class="rounded-lg bg-brand-500 py-2 text-sm text-white">Create sprint</button>
+          </form>
+        </div>
+        <div class="divide-y dark:divide-white/[0.05]">
+          @for (sprint of sprintStore.items(); track sprint.id) {
+            <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <h3 class="font-medium">{{ sprint.name }}</h3>
+                <p class="text-xs text-gray-500">{{ sprint.startDate | date: 'shortDate' }} – {{ sprint.endDate | date: 'shortDate' }}</p>
+              </div>
+              <div class="flex gap-2">
+                <a [routerLink]="['/sprints', sprint.id, 'board']" class="rounded-lg bg-brand-500 px-3 py-2 text-sm text-white">Board</a>
+                <button type="button" class="rounded-lg border px-3 py-2 text-sm" (click)="startSprint(sprint, $event)">Start</button>
+                <button type="button" class="rounded-lg border px-3 py-2 text-sm" (click)="closeSprint(sprint, $event)">Close</button>
+              </div>
+            </div>
+          }
+        </div>
+        <div appInfiniteScroll [appInfiniteScrollDisabled]="!sprintStore.hasMore()" (appInfiniteScroll)="sprintStore.loadMore()"></div>
+        <app-load-more-footer [loading]="sprintStore.loadingMore()" [hasMore]="sprintStore.hasMore()" [shown]="sprintStore.items().length" [total]="sprintStore.total()" (loadMore)="sprintStore.loadMore()" />
+      </div>
+    }
+
+    @if (activeTab() === 'members') {
+      <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div class="mb-4 max-w-md">
+          <app-infinite-select
+            label="Add member"
+            placeholder="Select user"
+            [options]="userSelectOptions()"
+            [loading]="userSelectLoading()"
+            [value]="newMemberId"
+            (valueChange)="newMemberId = $event"
+            (search)="loadUserOptions($event)"
+          />
+          <button type="button" class="mt-2 rounded-lg bg-brand-500 px-4 py-2 text-sm text-white" (click)="addMember()">Add to project</button>
+        </div>
+        <ul class="divide-y dark:divide-white/[0.05]">
+          @for (m of memberStore.items(); track m.id) {
+            <li class="flex items-center justify-between py-3">
+              <div>
+                <p class="font-medium">{{ m.memberName || m.memberId }}</p>
+                <p class="text-xs text-gray-500">{{ m.memberEmail }}</p>
+              </div>
+              <button type="button" class="text-sm text-error-600" (click)="removeMember(m)">Remove</button>
+            </li>
+          }
+        </ul>
+        <div appInfiniteScroll [appInfiniteScrollDisabled]="!memberStore.hasMore()" (appInfiniteScroll)="memberStore.loadMore()"></div>
+        <app-load-more-footer [loading]="memberStore.loadingMore()" [hasMore]="memberStore.hasMore()" [shown]="memberStore.items().length" [total]="memberStore.total()" (loadMore)="memberStore.loadMore()" />
+      </div>
+    }
+
+    @if (activeTab() === 'activity') {
+      <div class="rounded-xl border border-gray-200 dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <ul class="divide-y dark:divide-white/[0.05]">
+          @for (a of activityStore.items(); track a.id) {
+            <li class="px-5 py-4">
+              <p class="text-sm">{{ a.description }}</p>
+              <p class="text-xs text-gray-500">{{ a.actorName }} · {{ a.createdAt | date: 'short' }}</p>
+            </li>
+          } @empty { <li class="px-5 py-8 text-center text-sm text-gray-500">No activity</li> }
+        </ul>
+        <div appInfiniteScroll [appInfiniteScrollDisabled]="!activityStore.hasMore()" (appInfiniteScroll)="activityStore.loadMore()"></div>
+        <app-load-more-footer [loading]="activityStore.loadingMore()" [hasMore]="activityStore.hasMore()" [shown]="activityStore.items().length" [total]="activityStore.total()" (loadMore)="activityStore.loadMore()" />
+      </div>
+    }
+
+    @if (activeTab() === 'ai') {
+      <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white" [disabled]="isAiLoading()" (click)="runAi('standup')">Daily standup</button>
+          <button type="button" class="rounded-lg border px-4 py-2 text-sm" [disabled]="isAiLoading()" (click)="runAi('release')">Release notes</button>
+          <button type="button" class="rounded-lg border px-4 py-2 text-sm" [disabled]="isAiLoading()" (click)="runAi('risk')">Sprint risk</button>
+        </div>
+        @if (isAiLoading()) { <p class="mt-4 text-sm text-gray-500">Generating…</p> }
+        @if (aiOutput()) {
+          <pre class="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm dark:bg-gray-800">{{ aiOutput() }}</pre>
+        }
+      </div>
+    }
+  }
+</div>
