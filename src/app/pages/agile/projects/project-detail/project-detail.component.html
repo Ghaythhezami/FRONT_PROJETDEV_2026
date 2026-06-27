@@ -4,7 +4,7 @@
   @if (isLoadingProject()) {
     <div class="py-12 text-center text-sm text-gray-500">Loading…</div>
   } @else if (projectError()) {
-    <div class="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600">{{ projectError() }}</div>
+    <app-ui-alert [message]="projectError()" variant="error" />
   } @else if (project(); as p) {
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div>
@@ -13,13 +13,13 @@
         <p class="mt-1 text-sm text-gray-500">{{ p.projectDescription || '—' }}</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <a [routerLink]="['/projects', projectId, 'backlog']" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700">Backlog</a>
-        <button type="button" class="rounded-lg border border-warning-300 px-4 py-2.5 text-sm text-warning-700" (click)="finalizeProject()">Finalize project</button>
+        <a [routerLink]="['/projects', projectId, 'backlog']" class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700">Backlog</a>
+        @if (activeSprint(); as s) {
+          <a [routerLink]="['/sprints', s.sprintId, 'board']" class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm text-white hover:bg-brand-600">Sprint board</a>
+        }
+        <app-ui-button variant="danger" (pressed)="finalizeProject()">Finalize project</app-ui-button>
       </div>
     </div>
-    @if (finalizeMessage()) {
-      <p class="text-sm text-brand-600">{{ finalizeMessage() }}</p>
-    }
 
     <nav class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-white/[0.05]">
       @for (tab of ['overview', 'sprints', 'members', 'activity', 'ai']; track tab) {
@@ -39,51 +39,66 @@
 
     @if (activeTab() === 'overview') {
       <div class="grid gap-4 lg:grid-cols-2">
-        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
-          <h3 class="font-semibold text-gray-800 dark:text-white/90">Active sprint</h3>
+        <app-ui-card title="Active sprint">
           @if (activeSprint(); as s) {
-            <p class="mt-2 text-sm">{{ s.name }}</p>
-            <a [routerLink]="['/sprints', s.id, 'board']" class="mt-2 inline-block text-sm text-brand-600">Open board →</a>
+            <p class="text-sm">{{ s.name }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ s.doneStories }}/{{ s.totalStories }} stories · {{ s.doneIssues }}/{{ s.totalIssues }} issues</p>
+            <a [routerLink]="['/sprints', s.sprintId, 'board']" class="mt-2 inline-block text-sm text-brand-600">Open board →</a>
           } @else {
-            <p class="mt-2 text-sm text-gray-500">No active sprint</p>
+            <p class="text-sm text-gray-500">No active sprint</p>
           }
-        </div>
-        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
-          <h3 class="font-semibold">Team workload</h3>
-          <ul class="mt-2 space-y-2 text-sm">
+        </app-ui-card>
+        <app-ui-card title="Team workload">
+          <ul class="space-y-2 text-sm">
             @for (w of workload(); track w.memberId) {
               <li class="flex justify-between"><span>{{ w.memberName }}</span><span>{{ w.assignedIssues }} open / {{ w.completedIssues }} done</span></li>
             } @empty { <li class="text-gray-500">No data</li> }
           </ul>
-        </div>
-        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
-          <h3 class="font-semibold">Velocity</h3>
-          <ul class="mt-2 space-y-1 text-sm">
+        </app-ui-card>
+        <app-ui-card title="Velocity">
+          <ul class="space-y-1 text-sm">
             @for (v of velocity(); track v.sprintName) {
               <li>{{ v.sprintName }}: {{ v.completedPoints }} pts</li>
             } @empty { <li class="text-gray-500">No data</li> }
           </ul>
-        </div>
-        <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
-          <h3 class="font-semibold">Blocked / overdue</h3>
-          <p class="mt-2 text-sm text-gray-500">{{ blockedItems().length }} items (page 1)</p>
-        </div>
+        </app-ui-card>
+        <app-ui-card title="Blocked / overdue">
+          <ul class="space-y-2 text-sm">
+            @for (item of blockedItems(); track item.id) {
+              <li>
+                <a [routerLink]="['/issues', item.id]" [state]="{ issue: item }" class="text-brand-600 hover:underline">{{ item.title }}</a>
+              </li>
+            } @empty { <li class="text-gray-500">No blocked or overdue items</li> }
+          </ul>
+        </app-ui-card>
+        @if (activeSprint() && burndown().length) {
+          <app-ui-card title="Sprint burndown" subtitle="Remaining (brand) vs ideal (gray)" className="lg:col-span-2">
+            <div class="flex h-36 items-end gap-1">
+              @for (point of burndown(); track point.date) {
+                <div class="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <div class="flex w-full items-end justify-center gap-0.5" style="height: 6rem">
+                    <div class="w-2/5 rounded-t bg-brand-500" [style.height.%]="burndownBarHeight(point.remaining)" [title]="'Remaining: ' + point.remaining"></div>
+                    <div class="w-2/5 rounded-t bg-gray-300 dark:bg-gray-600" [style.height.%]="burndownBarHeight(point.ideal)" [title]="'Ideal: ' + point.ideal"></div>
+                  </div>
+                  <span class="truncate text-[10px] text-gray-500">{{ point.date | date: 'MM/dd' }}</span>
+                </div>
+              }
+            </div>
+          </app-ui-card>
+        }
       </div>
     }
 
     @if (activeTab() === 'sprints') {
-      <div class="rounded-xl border border-gray-200 dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <app-ui-card title="Sprints" [noPadding]="true" [hasHeaderActions]="true">
+        <div cardActions>
+          <app-ui-button size="sm" (pressed)="openSprintModal()">New sprint</app-ui-button>
+        </div>
         <div class="border-b p-5">
           <app-search-toolbar placeholder="Search sprints…" [total]="sprintStore.total()" totalLabel="sprints" (searchChange)="onSprintSearch($event)" />
           @if (sprintActionError()) {
-            <p class="mt-2 text-sm text-error-600">{{ sprintActionError() }}</p>
+            <div class="mt-2"><app-ui-alert [message]="sprintActionError()" variant="error" [dismissible]="true" (dismissed)="sprintActionError.set('')" /></div>
           }
-          <form class="mt-4 grid gap-3 sm:grid-cols-4" (ngSubmit)="createSprint()">
-            <input class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Sprint name" [(ngModel)]="newSprint.Name" name="sprintName" />
-            <input type="datetime-local" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="newSprint.StartDate" name="start" />
-            <input type="datetime-local" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="newSprint.EndDate" name="end" />
-            <button type="submit" class="rounded-lg bg-brand-500 py-2 text-sm text-white">Create sprint</button>
-          </form>
         </div>
         <div class="divide-y dark:divide-white/[0.05]">
           @for (sprint of sprintStore.items(); track sprint.id) {
@@ -93,23 +108,51 @@
                 <p class="text-xs text-gray-500">{{ sprint.startDate | date: 'shortDate' }} – {{ sprint.endDate | date: 'shortDate' }}</p>
               </div>
               <div class="flex gap-2">
-                <a [routerLink]="['/sprints', sprint.id, 'board']" class="rounded-lg bg-brand-500 px-3 py-2 text-sm text-white">Board</a>
-                <button type="button" class="rounded-lg border px-3 py-2 text-sm" (click)="startSprint(sprint, $event)">Start</button>
-                <button type="button" class="rounded-lg border px-3 py-2 text-sm" (click)="closeSprint(sprint, $event)">Close</button>
+                <a [routerLink]="['/sprints', sprint.id, 'board']" class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-3 py-2 text-sm text-white hover:bg-brand-600">Board</a>
+                <app-ui-button size="sm" variant="outline" (pressed)="startSprint(sprint, $event)">Start</app-ui-button>
+                <app-ui-button size="sm" variant="outline" (pressed)="closeSprint(sprint, $event)">Close</app-ui-button>
               </div>
             </div>
           }
         </div>
         <div appInfiniteScroll [appInfiniteScrollDisabled]="!sprintStore.hasMore()" (appInfiniteScroll)="sprintStore.loadMore()"></div>
         <app-load-more-footer [loading]="sprintStore.loadingMore()" [hasMore]="sprintStore.hasMore()" [shown]="sprintStore.items().length" [total]="sprintStore.total()" (loadMore)="sprintStore.loadMore()" />
-      </div>
+      </app-ui-card>
+
+      <app-ui-modal
+        [isOpen]="showSprintModal()"
+        title="Create sprint"
+        subtitle="POST /api/Sprints"
+        size="md"
+        [showFooter]="true"
+        (close)="showSprintModal.set(false)"
+      >
+        <form class="grid gap-3" id="sprintForm" (ngSubmit)="createSprint()">
+          <app-ui-form-field label="Sprint name" [(ngModel)]="newSprint.Name" name="sprintName" [required]="true" />
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Start</label>
+            <input type="datetime-local" class="h-11 w-full rounded-lg border px-3 text-sm dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="newSprint.StartDate" name="start" />
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">End</label>
+            <input type="datetime-local" class="h-11 w-full rounded-lg border px-3 text-sm dark:border-gray-700 dark:bg-gray-900" [(ngModel)]="newSprint.EndDate" name="end" />
+          </div>
+        </form>
+        <div modalFooter class="flex w-full justify-end gap-2">
+          <app-ui-button variant="outline" (pressed)="showSprintModal.set(false)">Cancel</app-ui-button>
+          <app-ui-button type="submit" formId="sprintForm" [loading]="isCreatingSprint()">Create sprint</app-ui-button>
+        </div>
+      </app-ui-modal>
     }
 
     @if (activeTab() === 'members') {
-      <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div class="mb-4 max-w-md">
+      <app-ui-card title="Team members" subtitle="POST /api/ProjectMembers">
+        <div class="mb-4 max-w-lg space-y-3">
+          @if (userDirectoryHint()) {
+            <p class="text-xs text-gray-500">{{ userDirectoryHint() }}</p>
+          }
           <app-infinite-select
-            label="Add member"
+            label="Add member (search)"
             placeholder="Select user"
             [options]="userSelectOptions()"
             [loading]="userSelectLoading()"
@@ -117,7 +160,14 @@
             (valueChange)="newMemberId = $event"
             (search)="loadUserOptions($event)"
           />
-          <button type="button" class="mt-2 rounded-lg bg-brand-500 px-4 py-2 text-sm text-white" (click)="addMember()">Add to project</button>
+          <app-ui-form-field label="Or paste user ID (UUID)" [(ngModel)]="newMemberId" name="memberUuid" />
+          @if (memberActionError()) {
+            <app-ui-alert [message]="memberActionError()" variant="error" [dismissible]="true" (dismissed)="memberActionError.set('')" />
+          }
+          <div class="flex flex-wrap gap-2">
+            <app-ui-button (pressed)="addMember()">Add to project</app-ui-button>
+            <app-ui-button variant="outline" (pressed)="addSelfAsMember()">Add me</app-ui-button>
+          </div>
         </div>
         <ul class="divide-y dark:divide-white/[0.05]">
           @for (m of memberStore.items(); track m.id) {
@@ -126,17 +176,17 @@
                 <p class="font-medium">{{ m.memberName || m.memberId }}</p>
                 <p class="text-xs text-gray-500">{{ m.memberEmail }}</p>
               </div>
-              <button type="button" class="text-sm text-error-600" (click)="removeMember(m)">Remove</button>
+              <app-ui-button variant="ghost" size="sm" (pressed)="removeMember(m)">Remove</app-ui-button>
             </li>
           }
         </ul>
         <div appInfiniteScroll [appInfiniteScrollDisabled]="!memberStore.hasMore()" (appInfiniteScroll)="memberStore.loadMore()"></div>
         <app-load-more-footer [loading]="memberStore.loadingMore()" [hasMore]="memberStore.hasMore()" [shown]="memberStore.items().length" [total]="memberStore.total()" (loadMore)="memberStore.loadMore()" />
-      </div>
+      </app-ui-card>
     }
 
     @if (activeTab() === 'activity') {
-      <div class="rounded-xl border border-gray-200 dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <app-ui-card title="Activity" [noPadding]="true">
         <ul class="divide-y dark:divide-white/[0.05]">
           @for (a of activityStore.items(); track a.id) {
             <li class="px-5 py-4">
@@ -147,21 +197,20 @@
         </ul>
         <div appInfiniteScroll [appInfiniteScrollDisabled]="!activityStore.hasMore()" (appInfiniteScroll)="activityStore.loadMore()"></div>
         <app-load-more-footer [loading]="activityStore.loadingMore()" [hasMore]="activityStore.hasMore()" [shown]="activityStore.items().length" [total]="activityStore.total()" (loadMore)="activityStore.loadMore()" />
-      </div>
+      </app-ui-card>
     }
 
     @if (activeTab() === 'ai') {
-      <div class="rounded-xl border border-gray-200 p-5 dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <app-ui-card title="AI assistant" subtitle="/api/ai — standup, release notes, sprint risk">
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white" [disabled]="isAiLoading()" (click)="runAi('standup')">Daily standup</button>
-          <button type="button" class="rounded-lg border px-4 py-2 text-sm" [disabled]="isAiLoading()" (click)="runAi('release')">Release notes</button>
-          <button type="button" class="rounded-lg border px-4 py-2 text-sm" [disabled]="isAiLoading()" (click)="runAi('risk')">Sprint risk</button>
+          <app-ui-button [loading]="isAiLoading()" (pressed)="runAi('standup')">Daily standup</app-ui-button>
+          <app-ui-button variant="outline" [loading]="isAiLoading()" (pressed)="runAi('release')">Release notes</app-ui-button>
+          <app-ui-button variant="outline" [loading]="isAiLoading()" (pressed)="runAi('risk')">Sprint risk</app-ui-button>
         </div>
-        @if (isAiLoading()) { <p class="mt-4 text-sm text-gray-500">Generating…</p> }
         @if (aiOutput()) {
           <pre class="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm dark:bg-gray-800">{{ aiOutput() }}</pre>
         }
-      </div>
+      </app-ui-card>
     }
   }
 </div>

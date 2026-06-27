@@ -3,26 +3,29 @@ import { Injectable } from '@angular/core';
 import { Observable, map, of, switchMap, catchError, throwError } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { Epic } from '../models/domain.models';
-import { extractUuid, isUuid } from '../utils/id.util';
+import { isUuid } from '../utils/id.util';
 import { pickDto } from '../utils/api.util';
 import { normalizeArray, normalizeUserStory } from '../utils/domain-normalizers';
+import { extractUuid } from '../utils/id.util';
 
 function normalizeEpic(raw: Record<string, unknown>): Epic {
-  return pickDto<Epic>(raw, {
+  const epic = pickDto<Epic>(raw, {
     id: ['epicId', 'EpicId', 'id', 'Id'],
     title: ['title', 'Title', 'name', 'Name', 'epicName', 'EpicName'],
     projectId: ['projectId', 'ProjectId'],
   });
+  epic.id = extractUuid(raw, ['epicId', 'EpicId', 'id', 'Id']) || epic.id;
+  epic.projectId = extractUuid(raw, ['projectId', 'ProjectId']) || epic.projectId;
+  return epic;
 }
 
 @Injectable({ providedIn: 'root' })
 export class EpicService {
-  private readonly projectBase = `${API_BASE_URL}/api/Projects`;
+  private readonly base = `${API_BASE_URL}/api/Epics`;
   private readonly epicCache = new Map<string, string>();
 
   constructor(private readonly http: HttpClient) {}
 
-  /** Resolves a valid EpicId for UserStory creation (never uses projectId as epic). */
   resolveEpicIdForProject(projectId: string): Observable<string> {
     if (!isUuid(projectId)) {
       return throwError(() => new Error('Invalid project id.'));
@@ -33,123 +36,87 @@ export class EpicService {
       return of(cached);
     }
 
-    return this.loadEpicsFromProject(projectId).pipe(
+    return this.getEpicsForProject(projectId).pipe(
       switchMap((epics) => {
         const existing = epics.find((e) => isUuid(e.id));
         if (existing) {
           this.epicCache.set(projectId, existing.id);
           return of(existing.id);
         }
-        return this.loadEpicFromBacklogStories(projectId).pipe(
-          switchMap((epicId) => {
-            if (epicId) {
-              this.epicCache.set(projectId, epicId);
-              return of(epicId);
-            }
-            return this.createDefaultEpic(projectId);
-          }),
-        );
+        return this.createDefaultEpic(projectId);
       }),
     );
   }
 
   getEpicsForProject(projectId: string): Observable<Epic[]> {
-    return this.loadEpicsFromProject(projectId);
-  }
-
-  private loadEpicsFromProject(projectId: string): Observable<Epic[]> {
-    return this.http.get<unknown>(`${this.projectBase}/${projectId}`).pipe(
-      map((body) => {
-        if (!body || typeof body !== 'object') {
-          return [];
-        }
-        const raw = body as Record<string, unknown>;
-
-        const singleEpicId = extractUuid(raw, [
-          'epicId',
-          'EpicId',
-          'defaultEpicId',
-          'DefaultEpicId',
-        ]);
-        if (singleEpicId) {
-          return [
-            {
-              id: singleEpicId,
-              title: String(raw['epicName'] ?? raw['EpicName'] ?? 'Project epic'),
-              projectId,
-            },
-          ];
-        }
-
-        const epicsRaw = (raw['epics'] ?? raw['Epics'] ?? raw['epicList'] ?? raw['EpicList']) as
-          | unknown[]
-          | undefined;
-        if (Array.isArray(epicsRaw) && epicsRaw.length) {
-          return epicsRaw
-            .map((item) => normalizeEpic(item as Record<string, unknown>))
-            .filter((e) => isUuid(e.id));
-        }
-
-        return [];
-      }),
+    return this.http.get<unknown>(`${this.base}/project/${projectId}`).pipe(
+      map((body) => normalizeArray(body, normalizeEpic).filter((e) => isUuid(e.id))),
       catchError(() => of([])),
     );
   }
 
-  private loadEpicFromBacklogStories(projectId: string): Observable<string | null> {
+  create(projectId: string, title: string, description = ''): Observable<Epic> {
     return this.http
-      .get<unknown>(`${API_BASE_URL}/api/UserStories/backlog/${projectId}`, {
-        params: { page: '1', limit: '10' },
+      .post<Record<string, unknown>>(this.base, {
+        ProjectId: projectId,
+        Title: title,
+        Description: description,
       })
       .pipe(
         map((body) => {
-          const stories = normalizeArray(body, normalizeUserStory);
-          const withEpic = stories.find((s) => isUuid(s.epicId));
-          return withEpic?.epicId ?? null;
+          const epic = normalizeEpic((body ?? {}) as Record<string, unknown>);
+          if (isUuid(epic.id)) {
+            this.epicCache.set(projectId, epic.id);
+          }
+          return epic;
         }),
-        catchError(() => of(null)),
       );
   }
 
   private createDefaultEpic(projectId: string): Observable<string> {
-    const payloads = [
-      { ProjectId: projectId, Title: 'Main epic', Name: 'Main epic' },
-      { projectId, title: 'Main epic', name: 'Main epic' },
-      { ProjectId: projectId, EpicName: 'Main epic' },
-    ];
-
-    const endpoints = [
-      `${API_BASE_URL}/api/Epics`,
-      `${API_BASE_URL}/api/Epic`,
-    ];
-
-    const tryCreate = (endpointIndex: number, payloadIndex: number): Observable<string> => {
-      if (endpointIndex >= endpoints.length) {
-        return throwError(
-          () =>
-            new Error(
-              'No epic found for this project. Ask an admin to create an epic in the backend, or add a user story via Swagger with a valid EpicId first.',
-            ),
-        );
-      }
-      if (payloadIndex >= payloads.length) {
-        return tryCreate(endpointIndex + 1, 0);
-      }
-
-      return this.http.post<unknown>(endpoints[endpointIndex], payloads[payloadIndex]).pipe(
+    return this.http
+      .post<Record<string, unknown>>(this.base, {
+        ProjectId: projectId,
+        Title: 'Main epic',
+        Description: 'Default epic',
+      })
+      .pipe(
         map((body) => {
           const raw = (body ?? {}) as Record<string, unknown>;
-          const id = extractUuid(raw, ['epicId', 'EpicId', 'id', 'Id']);
-          if (!id) {
+          const id = String(raw['epicId'] ?? raw['EpicId'] ?? '');
+          if (!isUuid(id)) {
             throw new Error('Epic created but id missing in response.');
           }
           this.epicCache.set(projectId, id);
           return id;
         }),
-        catchError(() => tryCreate(endpointIndex, payloadIndex + 1)),
+        catchError(() =>
+          this.loadEpicFromBacklogStories(projectId).pipe(
+            switchMap((epicId) => {
+              if (epicId) {
+                this.epicCache.set(projectId, epicId);
+                return of(epicId);
+              }
+              return throwError(
+                () =>
+                  new Error(
+                    'No epic for this project. Create a project again or ask an admin to add an epic.',
+                  ),
+              );
+            }),
+          ),
+        ),
       );
-    };
+  }
 
-    return tryCreate(0, 0);
+  private loadEpicFromBacklogStories(projectId: string): Observable<string | null> {
+    return this.http.get<unknown>(`${API_BASE_URL}/api/UserStories/backlog/${projectId}`).pipe(
+      map((body) => {
+        const stories = normalizeArray(body, normalizeUserStory);
+        const withEpic = stories.find((s) => isUuid(s.epicId));
+        return withEpic?.epicId ?? null;
+      }),
+      catchError(() => of(null)),
+    );
   }
 }

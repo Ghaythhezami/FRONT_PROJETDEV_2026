@@ -9,6 +9,15 @@ import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-
 import { Project } from '../../../../shared/models/domain.models';
 import { ProjectService } from '../../../../shared/services/project.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
+import {
+  AppAlertComponent,
+  AppCardComponent,
+  AppModalComponent,
+  FormFieldComponent,
+  FormTextareaComponent,
+  ToastService,
+  UiButtonComponent,
+} from '../../../../shared/ui';
 
 @Component({
   selector: 'app-project-list',
@@ -21,11 +30,18 @@ import { PaginatedListStore } from '../../../../shared/stores/paginated-list.sto
     SearchToolbarComponent,
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
+    AppModalComponent,
+    AppCardComponent,
+    AppAlertComponent,
+    UiButtonComponent,
+    FormFieldComponent,
+    FormTextareaComponent,
   ],
   templateUrl: './project-list.component.html',
 })
 export class ProjectListComponent implements OnInit {
   private readonly projectService = inject(ProjectService);
+  private readonly toast = inject(ToastService);
 
   readonly store = new PaginatedListStore<Project>((query) =>
     this.projectService.getMyProjects(query),
@@ -44,8 +60,18 @@ export class ProjectListComponent implements OnInit {
     this.store.setSearch(term);
   }
 
+  openCreateModal(): void {
+    this.createError.set('');
+    this.showCreateModal.set(true);
+  }
+
+  closeCreateModal(): void {
+    this.showCreateModal.set(false);
+  }
+
   createProject(): void {
     if (!this.newProject.projectName.trim() || !this.newProject.key.trim()) {
+      this.createError.set('Name and key are required.');
       return;
     }
     this.isCreating.set(true);
@@ -63,6 +89,7 @@ export class ProjectListComponent implements OnInit {
           this.showCreateModal.set(false);
           this.newProject = { projectName: '', projectDescription: '', key: '' };
           this.store.loadFirst();
+          this.toast.success('Project created successfully.');
         },
         error: (error) => {
           this.createError.set(

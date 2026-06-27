@@ -5,6 +5,8 @@ import { AppSidebarComponent } from '../app-sidebar/app-sidebar.component';
 import { BackdropComponent } from '../backdrop/backdrop.component';
 import { RouterModule } from '@angular/router';
 import { AppHeaderComponent } from '../app-header/app-header.component';
+import { ApiToastComponent } from '../../components/common/api-toast/api-toast.component';
+import { ConfirmDialogComponent } from '../../ui/confirm/confirm-dialog.component';
 
 @Component({
   selector: 'app-layout',
@@ -13,7 +15,9 @@ import { AppHeaderComponent } from '../app-header/app-header.component';
     RouterModule,
     AppHeaderComponent,
     AppSidebarComponent,
-    BackdropComponent
+    BackdropComponent,
+    ApiToastComponent,
+    ConfirmDialogComponent,
   ],
   templateUrl: './app-layout.component.html',
 })

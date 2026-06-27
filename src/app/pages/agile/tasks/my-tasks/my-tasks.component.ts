@@ -13,6 +13,7 @@ import {
 } from '../../../../shared/models/domain.models';
 import { IssueService } from '../../../../shared/services/issue.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
+import { AppAlertComponent, AppCardComponent } from '../../../../shared/ui';
 
 @Component({
   selector: 'app-my-tasks',
@@ -24,6 +25,8 @@ import { PaginatedListStore } from '../../../../shared/stores/paginated-list.sto
     SearchToolbarComponent,
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
+    AppCardComponent,
+    AppAlertComponent,
   ],
   templateUrl: './my-tasks.component.html',
 })

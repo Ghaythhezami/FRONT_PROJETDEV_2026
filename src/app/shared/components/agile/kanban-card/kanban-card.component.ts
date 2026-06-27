@@ -31,6 +31,7 @@ import {
 
       <a
         [routerLink]="['/issues', issue.id]"
+        [queryParams]="sprintId ? { sprintId: sprintId } : {}"
         [state]="{ issue: issue }"
         class="block text-sm font-semibold text-gray-900 hover:text-brand-600 dark:text-white/90"
         (click)="$event.stopPropagation()"
@@ -90,6 +91,7 @@ import {
 })
 export class KanbanCardComponent {
   @Input({ required: true }) issue!: Issue;
+  @Input() sprintId = '';
   @Input() dragging = false;
 
   @Output() dragStart = new EventEmitter<DragEvent>();

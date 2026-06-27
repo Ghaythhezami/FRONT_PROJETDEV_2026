@@ -1,20 +1,30 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
+import { Subject } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { NotificationResponseDto } from './notification.models';
 import { NotificationService } from './notification.service';
 
 const ACCESS_TOKEN_KEY = 'agile_ai_access_token';
 
+export type BoardHubEvent =
+  | 'IssueChanged'
+  | 'IssueMoved'
+  | 'CommentAdded'
+  | 'SubTaskChanged'
+  | 'AttachmentAdded'
+  | 'NotificationReceived';
+
 @Injectable({ providedIn: 'root' })
 export class BoardSignalrService {
   private connection: signalR.HubConnection | null = null;
   private isStarting = false;
-  private notificationHandlerRegistered = false;
+  private handlersRegistered = false;
 
-  constructor(
-    private readonly notificationService: NotificationService,
-  ) {}
+  /** Emits when the sprint board should reload (issue/comment/subtask changes). */
+  readonly boardChanged$ = new Subject<void>();
+
+  constructor(private readonly notificationService: NotificationService) {}
 
   async start(): Promise<void> {
     if (!this.accessToken || this.isStarting) {
@@ -43,7 +53,7 @@ export class BoardSignalrService {
 
   async stop(): Promise<void> {
     const connection = this.connection;
-    this.notificationHandlerRegistered = false;
+    this.handlersRegistered = false;
     this.connection = null;
 
     if (
@@ -62,28 +72,32 @@ export class BoardSignalrService {
           withCredentials: true,
         })
         .withAutomaticReconnect([0, 2000, 10000, 30000])
-        .configureLogging(signalR.LogLevel.Information)
+        .configureLogging(signalR.LogLevel.Warning)
         .build();
     }
 
-    this.registerNotificationHandler(this.connection);
+    this.registerHandlers(this.connection);
     return this.connection;
   }
 
-  private registerNotificationHandler(connection: signalR.HubConnection): void {
-    if (this.notificationHandlerRegistered) {
+  private registerHandlers(connection: signalR.HubConnection): void {
+    if (this.handlersRegistered) {
       return;
     }
+
+    const notifyBoard = () => this.boardChanged$.next();
 
     connection.on('NotificationReceived', (notification: NotificationResponseDto) => {
       this.notificationService.upsert(notification);
     });
 
-    connection.onreconnected(() => {
-      console.info('SignalR reconnected. Notification group is restored by the backend.');
-    });
+    connection.on('IssueChanged', notifyBoard);
+    connection.on('IssueMoved', notifyBoard);
+    connection.on('CommentAdded', notifyBoard);
+    connection.on('SubTaskChanged', notifyBoard);
+    connection.on('AttachmentAdded', notifyBoard);
 
-    this.notificationHandlerRegistered = true;
+    this.handlersRegistered = true;
   }
 
   private get accessToken(): string | null {

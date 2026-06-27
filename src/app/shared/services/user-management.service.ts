@@ -1,11 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { buildPaginationParams, parsePagedResponse } from '../utils/api.util';
 import { AuthUser, UserResponseDto } from './auth.models';
 import { RegisterUserDto, UpdateUserDto } from './user-management.models';
+import { fetchClientPagedList } from '../utils/list-api.util';
 
 @Injectable({ providedIn: 'root' })
 export class UserManagementService {
@@ -14,28 +14,38 @@ export class UserManagementService {
   constructor(private readonly http: HttpClient) {}
 
   getUsersPaged(query: PaginationQuery): Observable<PagedResult<AuthUser>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(`${this.apiUrl}/getAll`, { params }).pipe(
-      map((body) => {
-        const parsed = parsePagedResponse<UserResponseDto>(body, page, limit);
-        return {
-          ...parsed,
-          items: parsed.items.map((user) => this.normalizeUser(user)),
-        };
+    return fetchClientPagedList(
+      this.http,
+      `${this.apiUrl}/getAll`,
+      query,
+      (raw) => this.normalizeUser(raw as UserResponseDto),
+      (user, term) =>
+        `${user.prenom} ${user.nom} ${user.email} ${user.role}`.toLowerCase().includes(term),
+    ).pipe(
+      catchError((error) => {
+        if (error?.status === 403) {
+          return throwError(
+            () =>
+              new Error(
+                'Access denied: only administrators can list all users. Sign in as admin or add members by user ID.',
+              ),
+          );
+        }
+        return throwError(() => error);
       }),
     );
   }
 
   getAllUsers(): Observable<AuthUser[]> {
-    return this.getUsersPaged({ page: 1, limit: 10 }).pipe(map((result) => result.items));
+    return this.getUsersPaged({ page: 1, limit: 500 }).pipe(map((result) => result.items));
   }
 
   createUser(user: RegisterUserDto): Observable<AuthUser> {
     return this.http
-      .post<{ user?: UserResponseDto } | UserResponseDto>(`${this.apiUrl}/register`, user)
+      .post<{ user?: UserResponseDto; User?: UserResponseDto } | UserResponseDto>(
+        `${this.apiUrl}/register`,
+        user,
+      )
       .pipe(map((response) => this.normalizeUser(this.unwrapUserResponse(response))));
   }
 
@@ -57,11 +67,14 @@ export class UserManagementService {
     };
   }
 
-  private unwrapUserResponse(response: { user?: UserResponseDto } | UserResponseDto): UserResponseDto {
-    if ('user' in response) {
-      return response.user ?? {};
+  private unwrapUserResponse(
+    response: { user?: UserResponseDto; User?: UserResponseDto } | UserResponseDto,
+  ): UserResponseDto {
+    if (response && typeof response === 'object' && ('user' in response || 'User' in response)) {
+      return (response as { user?: UserResponseDto; User?: UserResponseDto }).user ??
+        (response as { User?: UserResponseDto }).User ??
+        {};
     }
-
-    return response as any;
+    return response as UserResponseDto;
   }
 }

@@ -1,109 +1,112 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import {
+  ActiveSprintSummary,
   BurndownPoint,
   DashboardProjectSummary,
-  Sprint,
+  Issue,
   SprintBoard,
   TeamWorkloadMember,
   VelocityPoint,
 } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { normalizeArray, normalizeProject, normalizeSprint, normalizeSprintBoard } from '../utils/domain-normalizers';
+import {
+  normalizeArray,
+  normalizeBurndownPoints,
+  normalizeIssue,
+  normalizeProject,
+  normalizeSprintBoard,
+  normalizeTeamWorkload,
+  normalizeVelocityPoints,
+  normalizeActiveSprintSummary,
+} from '../utils/domain-normalizers';
 import { PaginatedApiService } from './paginated-api.service';
+import { fetchClientPagedList } from '../utils/list-api.util';
+
+type Raw = Record<string, unknown>;
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
   private readonly base = `${API_BASE_URL}/api/Dashboard`;
 
-  constructor(private readonly paginatedApi: PaginatedApiService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly paginatedApi: PaginatedApiService,
+  ) {}
 
   getMyProjects(query: PaginationQuery): Observable<PagedResult<DashboardProjectSummary>> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${this.base}/my-projects`, query)
-      .pipe(
-        map((result) => ({
-          ...result,
-          items: result.items.map((item) => normalizeProject(item as Record<string, unknown>)),
-        })),
-      );
+    return fetchClientPagedList(
+      this.http,
+      `${this.base}/my-projects`,
+      query,
+      (raw) => normalizeProject(raw),
+      (item, term) =>
+        `${item.projectName} ${item.key} ${item.projectDescription ?? ''}`
+          .toLowerCase()
+          .includes(term),
+    );
   }
 
-  getActiveSprint(projectId: string): Observable<Sprint | null> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${this.base}/active-sprint/${projectId}`, {
-        page: 1,
-        limit: 1,
-      })
-      .pipe(
-        map((result) => {
-          const first = result.items[0];
-          return first ? normalizeSprint(first as Record<string, unknown>) : null;
-        }),
-      );
+  getActiveSprint(projectId: string): Observable<ActiveSprintSummary | null> {
+    return this.http.get<unknown>(`${this.base}/active-sprint/${projectId}`).pipe(
+      map((body) => normalizeActiveSprintSummary(body as Raw)),
+      catchError((error) => (error?.status === 404 ? of(null) : throwError(() => error))),
+    );
   }
 
   getSprintBoard(sprintId: string): Observable<SprintBoard> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${this.base}/sprint-board/${sprintId}`, {
-        page: 1,
-        limit: 10,
-      })
-      .pipe(
-        map((result) => {
-          if (result.items.length === 1) {
-            return normalizeSprintBoard(result.items[0] as Record<string, unknown>, sprintId);
-          }
-          return normalizeSprintBoard({ issues: result.items }, sprintId);
-        }),
-      );
+    return this.http
+      .get<unknown>(`${this.base}/sprint-board/${sprintId}`)
+      .pipe(map((body) => normalizeSprintBoard(body, sprintId)));
   }
 
-  getTeamWorkload(projectId: string, query: PaginationQuery): Observable<PagedResult<TeamWorkloadMember>> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${this.base}/team-workload/${projectId}`, query)
-      .pipe(
-        map((result) => ({
-          ...result,
-          items: result.items.map(
-            (item) =>
-              ({
-                memberId: String(item['memberId'] ?? item['MemberId'] ?? ''),
-                memberName: String(item['memberName'] ?? item['MemberName'] ?? ''),
-                assignedIssues: Number(item['assignedIssues'] ?? item['AssignedIssues'] ?? 0),
-                completedIssues: Number(item['completedIssues'] ?? item['CompletedIssues'] ?? 0),
-              }) satisfies TeamWorkloadMember,
-          ),
-        })),
-      );
+  getTeamWorkload(
+    projectId: string,
+    query: PaginationQuery,
+  ): Observable<PagedResult<TeamWorkloadMember>> {
+    return fetchClientPagedList(
+      this.http,
+      `${this.base}/team-workload/${projectId}`,
+      query,
+      normalizeTeamWorkload,
+      (item, term) => item.memberName.toLowerCase().includes(term),
+    );
   }
 
   getBurndown(sprintId: string): Observable<BurndownPoint[]> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${this.base}/burndown/${sprintId}`, { page: 1, limit: 30 })
-      .pipe(map((result) => normalizeArray(result.items, (raw) => ({
-        date: String(raw['date'] ?? raw['Date'] ?? ''),
-        remaining: Number(raw['remaining'] ?? raw['Remaining'] ?? 0),
-        ideal: Number(raw['ideal'] ?? raw['Ideal'] ?? 0),
-      }))));
+    return this.http
+      .get<unknown>(`${this.base}/burndown/${sprintId}`)
+      .pipe(map((body) => normalizeBurndownPoints(normalizeArray(body, (r) => r))));
   }
 
   getVelocity(projectId: string, query: PaginationQuery): Observable<PagedResult<VelocityPoint>> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${this.base}/velocity/${projectId}`, query)
-      .pipe(
-        map((result) => ({
-          ...result,
-          items: result.items.map((raw) => ({
-            sprintName: String(raw['sprintName'] ?? raw['SprintName'] ?? ''),
-            completedPoints: Number(raw['completedPoints'] ?? raw['CompletedPoints'] ?? 0),
-          })),
-        })),
-      );
+    return this.http.get<unknown>(`${this.base}/velocity/${projectId}`).pipe(
+      map((body) => {
+        const points = normalizeVelocityPoints(normalizeArray(body, (r) => r));
+        const page = query.page ?? 1;
+        const limit = query.limit ?? 10;
+        const start = (page - 1) * limit;
+        const items = points.slice(start, start + limit);
+        return {
+          items,
+          page,
+          limit,
+          total: points.length,
+          hasMore: start + limit < points.length,
+        };
+      }),
+    );
   }
 
-  getBlockedOverdue(projectId: string, query: PaginationQuery): Observable<PagedResult<Record<string, unknown>>> {
-    return this.paginatedApi.getPaged(`${this.base}/blocked-overdue/${projectId}`, query);
+  getBlockedOverdue(projectId: string, query: PaginationQuery): Observable<PagedResult<Issue>> {
+    return fetchClientPagedList(
+      this.http,
+      `${this.base}/blocked-overdue/${projectId}`,
+      query,
+      normalizeIssue,
+      (item, term) => item.title.toLowerCase().includes(term),
+    );
   }
 }

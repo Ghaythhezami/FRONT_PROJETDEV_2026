@@ -10,6 +10,9 @@ import {
   ITEM_STATUS_LABELS,
   Issue,
   ItemStatus,
+  Attachment,
+  Comment,
+  SubTask,
 } from '../../../../shared/models/domain.models';
 import { AiService } from '../../../../shared/services/ai.service';
 import { AttachmentService } from '../../../../shared/services/attachment.service';
@@ -17,7 +20,14 @@ import { CommentService } from '../../../../shared/services/comment.service';
 import { IssueService } from '../../../../shared/services/issue.service';
 import { SubtaskService } from '../../../../shared/services/subtask.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
-import { Attachment, Comment, SubTask } from '../../../../shared/models/domain.models';
+import {
+  AppAlertComponent,
+  AppCardComponent,
+  FormFieldComponent,
+  FormTextareaComponent,
+  ToastService,
+  UiButtonComponent,
+} from '../../../../shared/ui';
 
 @Component({
   selector: 'app-issue-detail',
@@ -29,6 +39,11 @@ import { Attachment, Comment, SubTask } from '../../../../shared/models/domain.m
     PageBreadcrumbComponent,
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
+    AppCardComponent,
+    AppAlertComponent,
+    UiButtonComponent,
+    FormFieldComponent,
+    FormTextareaComponent,
   ],
   templateUrl: './issue-detail.component.html',
 })
@@ -39,6 +54,7 @@ export class IssueDetailComponent implements OnInit {
   private readonly attachmentService = inject(AttachmentService);
   private readonly subtaskService = inject(SubtaskService);
   private readonly aiService = inject(AiService);
+  private readonly toast = inject(ToastService);
 
   issueId = '';
   issue = signal<Issue | null>(null);
@@ -56,7 +72,7 @@ export class IssueDetailComponent implements OnInit {
     ItemStatus.InProgress,
     ItemStatus.InReview,
     ItemStatus.Done,
-    ItemStatus.Blocked,
+    ItemStatus.Closed,
   ];
 
   readonly commentStore = new PaginatedListStore<Comment>((q) =>
@@ -72,11 +88,38 @@ export class IssueDetailComponent implements OnInit {
   ngOnInit(): void {
     this.issueId = this.route.snapshot.paramMap.get('issueId') ?? '';
     const stateIssue = history.state?.['issue'] as Issue | undefined;
+    const sprintId = this.route.snapshot.queryParamMap.get('sprintId');
+
     if (stateIssue?.id) {
       this.issue.set(stateIssue);
+      this.loadSubtasks();
+      this.commentStore.loadFirst();
+      this.attachmentStore.loadFirst();
+      return;
     }
-    this.commentStore.loadFirst();
-    this.attachmentStore.loadFirst();
+
+    this.issueService.resolveIssue(this.issueId, sprintId).subscribe({
+      next: (resolved) => {
+        if (resolved) {
+          this.issue.set(resolved);
+          this.loadSubtasks();
+          this.commentStore.loadFirst();
+          this.attachmentStore.loadFirst();
+        } else {
+          this.errorMessage.set('Issue not found. Open it from the sprint board or My tasks.');
+        }
+      },
+      error: () => this.errorMessage.set('Unable to load this issue.'),
+    });
+  }
+
+  private loadSubtasks(): void {
+    if (!this.issueId) {
+      return;
+    }
+    this.subtaskService.getByIssue(this.issueId).subscribe({
+      next: (list) => this.subtasks.set(list),
+    });
   }
 
   updateStatus(status: ItemStatus): void {
@@ -91,6 +134,7 @@ export class IssueDetailComponent implements OnInit {
         next: (updated) => {
           this.issue.set(updated);
           this.isSaving.set(false);
+          this.toast.success(`Status updated to ${this.statusLabels[status]}.`);
         },
         error: () => this.isSaving.set(false),
       });
@@ -102,7 +146,11 @@ export class IssueDetailComponent implements OnInit {
       return;
     }
     this.issueService.autoAssign(current.id).subscribe({
-      next: (updated) => this.issue.set(updated),
+      next: (updated) => {
+        this.issue.set(updated);
+        this.toast.success('Issue auto-assigned (AI workload).');
+      },
+      error: (e) => this.toast.error(e?.error?.message ?? 'Auto-assign failed.'),
     });
   }
 
@@ -116,6 +164,7 @@ export class IssueDetailComponent implements OnInit {
         next: () => {
           this.newComment = '';
           this.commentStore.loadFirst();
+          this.toast.success('Comment posted.');
         },
       });
   }
@@ -130,7 +179,9 @@ export class IssueDetailComponent implements OnInit {
       next: () => {
         this.attachmentStore.loadFirst();
         input.value = '';
+        this.toast.success('Attachment uploaded.');
       },
+      error: (e) => this.toast.error(e?.error?.message ?? 'Upload failed.'),
     });
   }
 
@@ -144,12 +195,13 @@ export class IssueDetailComponent implements OnInit {
         next: (st) => {
           this.subtasks.update((list) => [...list, st]);
           this.newSubtaskTitle = '';
+          this.toast.success('Subtask added.');
         },
       });
   }
 
   toggleSubtask(subtask: SubTask): void {
-    this.subtaskService.toggle(subtask.id).subscribe({
+    this.subtaskService.toggle(subtask).subscribe({
       next: (updated) => {
         this.subtasks.update((list) =>
           list.map((s) => (s.id === updated.id ? updated : s)),
@@ -170,6 +222,7 @@ export class IssueDetailComponent implements OnInit {
         next: (text) => {
           this.aiSubtasks.set(text);
           this.isAiLoading.set(false);
+          this.toast.info('AI subtask suggestions ready.');
         },
         error: () => this.isAiLoading.set(false),
       });

@@ -3,7 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { buildPaginationParams, parsePagedResponse } from '../utils/api.util';
+import { parsePagedResponse } from '../utils/api.util';
 import { NotificationResponse, NotificationResponseDto } from './notification.models';
 
 export interface SendNotificationPayload {
@@ -37,17 +37,16 @@ export class NotificationService {
     this.isLoadingSignal.set(true);
     this.errorSignal.set('');
 
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(`${this.apiUrl}/mine`, { params }).pipe(
+    return this.http.get<unknown>(`${this.apiUrl}/mine`).pipe(
       map((body) => {
         const page = query.page ?? 1;
         const limit = query.limit ?? 10;
         const parsed = parsePagedResponse<NotificationResponseDto>(body, page, limit);
-        const list = Array.isArray(body)
+        const list = (Array.isArray(body)
           ? (body as NotificationResponseDto[])
-          : parsed.items;
-        return list.map((n) => this.normalize(n));
+          : parsed.items
+        ).map((n) => this.normalize(n));
+        return list;
       }),
       tap((notifications) => {
         this.notificationsSignal.set(this.sortNotifications(this.dedupe(notifications)));
@@ -66,9 +65,7 @@ export class NotificationService {
   getMinePaged(query: PaginationQuery): Observable<PagedResult<NotificationResponse>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(`${this.apiUrl}/mine`, { params }).pipe(
+    return this.http.get<unknown>(`${this.apiUrl}/mine`).pipe(
       map((body) => {
         const parsed = parsePagedResponse<NotificationResponseDto>(body, page, limit);
         const items = (Array.isArray(body) ? (body as NotificationResponseDto[]) : parsed.items).map(

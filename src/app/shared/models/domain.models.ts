@@ -4,7 +4,19 @@ export enum ItemStatus {
   InProgress = 2,
   InReview = 3,
   Done = 4,
-  Blocked = 5,
+  Closed = 5,
+}
+
+/** Active sprint summary from GET /api/Dashboard/active-sprint/{projectId} */
+export interface ActiveSprintSummary {
+  sprintId: string;
+  name: string;
+  projectId: string;
+  totalStories: number;
+  doneStories: number;
+  totalIssues: number;
+  doneIssues: number;
+  completedPoints: number;
 }
 
 export enum ItemPriority {
@@ -165,7 +177,7 @@ export const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
   [ItemStatus.InProgress]: 'In Progress',
   [ItemStatus.InReview]: 'In Review',
   [ItemStatus.Done]: 'Done',
-  [ItemStatus.Blocked]: 'Blocked',
+  [ItemStatus.Closed]: 'Closed',
 };
 
 export const ITEM_STATUS_COLORS: Record<ItemStatus, string> = {
@@ -173,7 +185,7 @@ export const ITEM_STATUS_COLORS: Record<ItemStatus, string> = {
   [ItemStatus.InProgress]: 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300',
   [ItemStatus.InReview]: 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300',
   [ItemStatus.Done]: 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300',
-  [ItemStatus.Blocked]: 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-300',
+  [ItemStatus.Closed]: 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-300',
 };
 
 /** Main board columns (matches design reference — 4 columns). */
@@ -208,8 +220,8 @@ export const KANBAN_COLUMN_UI: Record<
     columnBg: 'bg-[#ede9fe]',
     dot: 'bg-violet-400',
   },
-  [ItemStatus.Blocked]: {
-    label: 'Blocked',
+  [ItemStatus.Closed]: {
+    label: 'Closed',
     columnBg: 'bg-red-50',
     dot: 'bg-red-400',
   },

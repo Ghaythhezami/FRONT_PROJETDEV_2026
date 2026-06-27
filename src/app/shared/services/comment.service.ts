@@ -4,9 +4,8 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { Comment } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { buildPaginationParams, parsePagedResponse } from '../utils/api.util';
-import { normalizeArray } from '../utils/domain-normalizers';
 import { pickDto } from '../utils/api.util';
+import { fetchClientPagedList } from '../utils/list-api.util';
 
 export interface CreateCommentPayload {
   Content: string;
@@ -15,7 +14,7 @@ export interface CreateCommentPayload {
 
 function normalizeComment(raw: Record<string, unknown>): Comment {
   return pickDto<Comment>(raw, {
-    id: ['id', 'Id', 'commentId', 'CommentId'],
+    id: ['commentId', 'CommentId', 'id', 'Id'],
     content: ['content', 'Content'],
     issueId: ['issueId', 'IssueId'],
     authorName: ['authorName', 'AuthorName', 'userName', 'UserName'],
@@ -30,20 +29,12 @@ export class CommentService {
   constructor(private readonly http: HttpClient) {}
 
   getByIssue(issueId: string, query: PaginationQuery): Observable<PagedResult<Comment>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(`${this.base}/issue/${issueId}`, { params }).pipe(
-      map((body) => {
-        const parsed = parsePagedResponse<Record<string, unknown>>(body, page, limit);
-        return {
-          ...parsed,
-          items: parsed.items.length
-            ? parsed.items.map(normalizeComment)
-            : normalizeArray(body, normalizeComment),
-        };
-      }),
+    return fetchClientPagedList(
+      this.http,
+      `${this.base}/issue/${issueId}`,
+      query,
+      (raw) => normalizeComment(raw),
+      (item, term) => item.content.toLowerCase().includes(term),
     );
   }
 

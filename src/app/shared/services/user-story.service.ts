@@ -4,8 +4,9 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { UserStory } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { normalizeArray, normalizeUserStory } from '../utils/domain-normalizers';
-import { buildPaginationParams, parsePagedResponse } from '../utils/api.util';
+import { normalizeUserStory } from '../utils/domain-normalizers';
+import { fetchClientPagedList } from '../utils/list-api.util';
+import { JSON_HEADERS, rawGuidBody } from '../utils/http-body.util';
 
 export interface CreateUserStoryPayload {
   Title: string;
@@ -25,38 +26,23 @@ export class UserStoryService {
   constructor(private readonly http: HttpClient) {}
 
   getBacklog(projectId: string, query: PaginationQuery): Observable<PagedResult<UserStory>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(`${this.base}/backlog/${projectId}`, { params }).pipe(
-      map((body) => {
-        const parsed = parsePagedResponse<Record<string, unknown>>(body, page, limit);
-        return {
-          ...parsed,
-          items: parsed.items.length
-            ? parsed.items.map(normalizeUserStory)
-            : normalizeArray(body, normalizeUserStory),
-        };
-      }),
+    return fetchClientPagedList(
+      this.http,
+      `${this.base}/backlog/${projectId}`,
+      query,
+      (raw) => normalizeUserStory(raw),
+      (item, term) =>
+        `${item.title} ${item.description ?? ''}`.toLowerCase().includes(term),
     );
   }
 
   getBySprint(sprintId: string, query: PaginationQuery): Observable<PagedResult<UserStory>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(`${this.base}/sprint/${sprintId}`, { params }).pipe(
-      map((body) => {
-        const parsed = parsePagedResponse<Record<string, unknown>>(body, page, limit);
-        return {
-          ...parsed,
-          items: parsed.items.length
-            ? parsed.items.map(normalizeUserStory)
-            : normalizeArray(body, normalizeUserStory),
-        };
-      }),
+    return fetchClientPagedList(
+      this.http,
+      `${this.base}/sprint/${sprintId}`,
+      query,
+      (raw) => normalizeUserStory(raw),
+      (item, term) => item.title.toLowerCase().includes(term),
     );
   }
 
@@ -68,7 +54,9 @@ export class UserStoryService {
 
   assignToSprint(id: string, sprintId: string | null): Observable<UserStory> {
     return this.http
-      .patch<Record<string, unknown>>(`${this.base}/${id}/sprint`, { SprintId: sprintId })
+      .patch<Record<string, unknown>>(`${this.base}/${id}/sprint`, rawGuidBody(sprintId), {
+        headers: JSON_HEADERS,
+      })
       .pipe(map(normalizeUserStory));
   }
 }

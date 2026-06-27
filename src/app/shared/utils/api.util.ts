@@ -5,8 +5,20 @@ import {
   PaginationQuery,
 } from '../models/pagination.models';
 
-/** Builds standard query params expected by the backend (page, limit, search, filters). */
+/**
+ * Builds query params for client-side pagination only (search is applied in the browser).
+ * The backend does not implement page/limit — avoid sending those to reduce noise.
+ */
 export function buildPaginationParams(query: PaginationQuery): HttpParams {
+  let params = new HttpParams();
+  if (query.search?.trim()) {
+    params = params.set('search', query.search.trim());
+  }
+  return params;
+}
+
+/** @deprecated Backend ignores page/limit; kept for any future server-side paging. */
+export function buildServerPaginationParams(query: PaginationQuery): HttpParams {
   const page = query.page ?? 1;
   const limit = query.limit ?? DEFAULT_PAGE_LIMIT;
 

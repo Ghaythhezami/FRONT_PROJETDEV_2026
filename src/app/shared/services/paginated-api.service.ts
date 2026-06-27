@@ -1,39 +1,30 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { buildPaginationParams, parsePagedResponse } from '../utils/api.util';
+import { parsePagedResponse } from '../utils/api.util';
+import { fetchClientPagedList } from '../utils/list-api.util';
+
+type Raw = Record<string, unknown>;
 
 @Injectable({ providedIn: 'root' })
 export class PaginatedApiService {
   constructor(private readonly http: HttpClient) {}
 
-  getPaged<T>(url: string, query: PaginationQuery): Observable<PagedResult<T>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const params = buildPaginationParams(query);
-
-    return this.http.get<unknown>(url, { params }).pipe(
-      map((body) => parsePagedResponse<T>(body, page, limit)),
-    );
-  }
-
-  getPagedWithParams<T>(
+  /** GET list — client-side page/search only (backend returns full arrays). */
+  getPaged<T>(
     url: string,
     query: PaginationQuery,
-    extraParams?: Record<string, string>,
+    mapItem?: (raw: Raw) => T,
+    matchesSearch?: (item: T, term: string) => boolean,
   ): Observable<PagedResult<T>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    let params = buildPaginationParams(query);
-
-    if (extraParams) {
-      Object.entries(extraParams).forEach(([key, value]) => {
-        params = params.set(key, value);
-      });
+    if (mapItem) {
+      return fetchClientPagedList(this.http, url, query, mapItem, matchesSearch);
     }
 
-    return this.http.get<unknown>(url, { params }).pipe(
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    return this.http.get<unknown>(url).pipe(
       map((body) => parsePagedResponse<T>(body, page, limit)),
     );
   }

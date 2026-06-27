@@ -6,7 +6,15 @@ import { LoadMoreFooterComponent } from '../../../shared/components/data/load-mo
 import { InfiniteScrollDirective } from '../../../shared/directives/infinite-scroll.directive';
 import { NotificationResponse } from '../../../shared/services/notification.models';
 import { NotificationService } from '../../../shared/services/notification.service';
+import { AuthService } from '../../../shared/services/auth.service';
 import { PaginatedListStore } from '../../../shared/stores/paginated-list.store';
+import {
+  AppCardComponent,
+  FormFieldComponent,
+  FormTextareaComponent,
+  ToastService,
+  UiButtonComponent,
+} from '../../../shared/ui';
 
 @Component({
   selector: 'app-notifications-page',
@@ -17,11 +25,17 @@ import { PaginatedListStore } from '../../../shared/stores/paginated-list.store'
     PageBreadcrumbComponent,
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
+    AppCardComponent,
+    UiButtonComponent,
+    FormFieldComponent,
+    FormTextareaComponent,
   ],
   templateUrl: './notifications-page.component.html',
 })
 export class NotificationsPageComponent implements OnInit {
   private readonly notificationService = inject(NotificationService);
+  private readonly toast = inject(ToastService);
+  readonly authService = inject(AuthService);
 
   readonly store = new PaginatedListStore<NotificationResponse>((query) =>
     this.notificationService.getMinePaged(query),
@@ -29,7 +43,6 @@ export class NotificationsPageComponent implements OnInit {
 
   sendForm = { receiverId: '', description: '', link: '' };
   testForm = { receiverId: '', description: '' };
-  actionMessage = signal('');
 
   ngOnInit(): void {
     this.store.loadFirst();
@@ -37,7 +50,9 @@ export class NotificationsPageComponent implements OnInit {
 
   markRead(n: NotificationResponse): void {
     if (!n.isRead) {
-      this.notificationService.markAsRead(n.notificationId).subscribe();
+      this.notificationService.markAsRead(n.notificationId).subscribe({
+        next: () => this.toast.success('Marked as read.'),
+      });
     }
   }
 
@@ -48,10 +63,10 @@ export class NotificationsPageComponent implements OnInit {
       Link: this.sendForm.link,
     }).subscribe({
       next: () => {
-        this.actionMessage.set('Notification sent.');
+        this.toast.success('Notification sent.');
         this.store.loadFirst();
       },
-      error: (e) => this.actionMessage.set(e?.message ?? 'Send failed.'),
+      error: (e) => this.toast.error(e?.message ?? 'Send failed.'),
     });
   }
 
@@ -60,8 +75,8 @@ export class NotificationsPageComponent implements OnInit {
       ReceiverId: this.testForm.receiverId,
       Description: this.testForm.description,
     }).subscribe({
-      next: () => this.actionMessage.set('Test notification sent.'),
-      error: (e) => this.actionMessage.set(e?.message ?? 'Test failed.'),
+      next: () => this.toast.success('Test notification sent.'),
+      error: (e) => this.toast.error(e?.message ?? 'Test failed.'),
     });
   }
 }

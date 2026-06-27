@@ -4,11 +4,11 @@
   <div>
     <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">My tasks</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-      Issues assigned to you — loaded 10 at a time with infinite scroll.
+      GET /api/Issues/my-tasks — issues assigned to you.
     </p>
   </div>
 
-  <div class="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+  <app-ui-card title="Assigned issues" [noPadding]="true">
     <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
       <app-search-toolbar
         placeholder="Search tasks…"
@@ -21,9 +21,7 @@
     @if (store.loading() && !store.items().length) {
       <div class="py-16 text-center text-sm text-gray-500">Loading tasks…</div>
     } @else if (store.error()) {
-      <div class="m-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600">
-        {{ store.error() }}
-      </div>
+      <div class="m-5"><app-ui-alert [message]="store.error()!" variant="error" /></div>
     } @else if (store.isEmpty()) {
       <div class="py-16 text-center text-sm text-gray-500">No tasks assigned to you</div>
     } @else {
@@ -40,18 +38,8 @@
           </li>
         }
       </ul>
-      <div
-        appInfiniteScroll
-        [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
-        (appInfiniteScroll)="store.loadMore()"
-      ></div>
-      <app-load-more-footer
-        [loading]="store.loadingMore()"
-        [hasMore]="store.hasMore()"
-        [shown]="store.items().length"
-        [total]="store.total()"
-        (loadMore)="store.loadMore()"
-      />
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()" (appInfiniteScroll)="store.loadMore()"></div>
+      <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
     }
-  </div>
+  </app-ui-card>
 </div>

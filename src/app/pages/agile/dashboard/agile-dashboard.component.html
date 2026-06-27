@@ -1,33 +1,17 @@
 <div class="space-y-6">
   <app-page-breadcrumb pageTitle="Dashboard" />
 
-  <div
-    class="rounded-2xl border border-gray-200 bg-gradient-to-br from-brand-500/10 via-white to-white p-6 dark:border-white/[0.05] dark:from-brand-500/10 dark:via-white/[0.02] dark:to-white/[0.02] sm:p-8"
-  >
+  <app-ui-card className="border-brand-500/20 bg-gradient-to-br from-brand-500/10 via-white to-white dark:from-brand-500/10 dark:via-white/[0.02]">
     <p class="text-sm font-medium text-brand-600 dark:text-brand-400">Agile AI</p>
-    <h1 class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">
-      {{ greeting }}
-    </h1>
+    <h1 class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">{{ greeting }}</h1>
     <p class="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-      Your projects, active sprints, and team workload — connected to
-      <a
-        href="https://projetdev2026.onrender.com/swagger/index.html"
-        target="_blank"
-        rel="noopener"
-        class="text-brand-600 hover:underline dark:text-brand-400"
-        >the deployed API</a
-      >.
+      Your projects, active sprints, and team workload — connected to the API.
     </p>
-  </div>
+  </app-ui-card>
 
-  <div class="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+  <app-ui-card title="My projects" subtitle="GET /api/Dashboard/my-projects" [noPadding]="true">
     <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
-      <app-search-toolbar
-        placeholder="Search projects…"
-        [total]="store.total()"
-        totalLabel="projects"
-        (searchChange)="onSearch($event)"
-      />
+      <app-search-toolbar placeholder="Search projects…" [total]="store.total()" totalLabel="projects" (searchChange)="onSearch($event)" />
     </div>
 
     @if (store.loading() && store.items().length === 0) {
@@ -36,16 +20,11 @@
         Loading projects…
       </div>
     } @else if (store.error()) {
-      <div class="m-5 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
-        {{ store.error() }}
-      </div>
+      <div class="m-5"><app-ui-alert [message]="store.error()!" variant="error" /></div>
     } @else if (store.isEmpty()) {
       <div class="px-5 py-16 text-center">
         <p class="text-gray-600 dark:text-gray-300">No projects yet</p>
-        <a
-          routerLink="/projects"
-          class="mt-4 inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
-        >
+        <a routerLink="/projects" class="mt-4 inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
           Create a project
         </a>
       </div>
@@ -56,43 +35,23 @@
             [routerLink]="['/projects', project.id]"
             class="group rounded-xl border border-gray-100 p-5 transition hover:border-brand-200 hover:shadow-theme-sm dark:border-white/[0.05] dark:hover:border-brand-500/30"
           >
-            <div class="flex items-start justify-between gap-2">
-              <span
-                class="rounded-md bg-brand-50 px-2 py-1 text-xs font-semibold uppercase text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
-              >
-                {{ project.key }}
-              </span>
-            </div>
-            <h3
-              class="mt-3 font-semibold text-gray-800 group-hover:text-brand-600 dark:text-white/90 dark:group-hover:text-brand-400"
-            >
+            <span class="rounded-md bg-brand-50 px-2 py-1 text-xs font-semibold uppercase text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+              {{ project.key }}
+            </span>
+            <h3 class="mt-3 font-semibold text-gray-800 group-hover:text-brand-600 dark:text-white/90 dark:group-hover:text-brand-400">
               {{ project.projectName }}
             </h3>
             <p class="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
               {{ project.projectDescription || 'No description' }}
             </p>
             @if (project.activeSprintName) {
-              <p class="mt-3 text-xs text-brand-600 dark:text-brand-400">
-                Active sprint: {{ project.activeSprintName }}
-              </p>
+              <p class="mt-3 text-xs text-brand-600 dark:text-brand-400">Active sprint: {{ project.activeSprintName }}</p>
             }
           </a>
         }
       </div>
-
-      <div
-        appInfiniteScroll
-        [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
-        (appInfiniteScroll)="store.loadMore()"
-      ></div>
-
-      <app-load-more-footer
-        [loading]="store.loadingMore()"
-        [hasMore]="store.hasMore()"
-        [shown]="store.items().length"
-        [total]="store.total()"
-        (loadMore)="store.loadMore()"
-      />
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()" (appInfiniteScroll)="store.loadMore()"></div>
+      <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
     }
-  </div>
+  </app-ui-card>
 </div>

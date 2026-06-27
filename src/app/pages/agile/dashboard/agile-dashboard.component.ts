@@ -9,6 +9,7 @@ import { DashboardProjectSummary } from '../../../shared/models/domain.models';
 import { AuthService } from '../../../shared/services/auth.service';
 import { DashboardService } from '../../../shared/services/dashboard.service';
 import { PaginatedListStore } from '../../../shared/stores/paginated-list.store';
+import { AppAlertComponent, AppCardComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-agile-dashboard',
@@ -20,6 +21,8 @@ import { PaginatedListStore } from '../../../shared/stores/paginated-list.store'
     SearchToolbarComponent,
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
+    AppCardComponent,
+    AppAlertComponent,
   ],
   templateUrl: './agile-dashboard.component.html',
 })

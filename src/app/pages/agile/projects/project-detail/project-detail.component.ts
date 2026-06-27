@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
@@ -7,7 +7,10 @@ import { LoadMoreFooterComponent } from '../../../../shared/components/data/load
 import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
 import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-scroll.directive';
 import {
+  ActiveSprintSummary,
   ActivityItem,
+  BurndownPoint,
+  Issue,
   Project,
   ProjectMember,
   Sprint,
@@ -24,7 +27,17 @@ import { SprintService, CreateSprintPayload } from '../../../../shared/services/
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
 import { AuthService } from '../../../../shared/services/auth.service';
 import { InfiniteSelectComponent, SelectOption } from '../../../../shared/components/data/infinite-select/infinite-select.component';
-import { UserManagementService } from '../../../../shared/services/user-management.service';
+import { UserDirectoryService } from '../../../../shared/services/user-directory.service';
+import { isUuid } from '../../../../shared/utils/id.util';
+import {
+  AppAlertComponent,
+  AppCardComponent,
+  AppModalComponent,
+  DialogService,
+  FormFieldComponent,
+  ToastService,
+  UiButtonComponent,
+} from '../../../../shared/ui';
 
 type Tab = 'overview' | 'sprints' | 'members' | 'activity' | 'ai';
 
@@ -40,6 +53,11 @@ type Tab = 'overview' | 'sprints' | 'members' | 'activity' | 'ai';
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
     InfiniteSelectComponent,
+    AppCardComponent,
+    AppAlertComponent,
+    AppModalComponent,
+    UiButtonComponent,
+    FormFieldComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -52,30 +70,43 @@ export class ProjectDetailComponent implements OnInit {
   private readonly memberService = inject(ProjectMemberService);
   private readonly aiService = inject(AiService);
   private readonly executionService = inject(ProjectExecutionService);
-  private readonly userService = inject(UserManagementService);
+  private readonly userDirectory = inject(UserDirectoryService);
+  private readonly dialog = inject(DialogService);
+  private readonly toast = inject(ToastService);
   readonly authService = inject(AuthService);
 
   project = signal<Project | null>(null);
   isLoadingProject = signal(true);
   projectError = signal('');
   activeTab = signal<Tab>('overview');
-  activeSprint = signal<Sprint | null>(null);
+  activeSprint = signal<ActiveSprintSummary | null>(null);
   workload = signal<TeamWorkloadMember[]>([]);
   velocity = signal<VelocityPoint[]>([]);
-  blockedItems = signal<Record<string, unknown>[]>([]);
+  blockedItems = signal<Issue[]>([]);
+  burndown = signal<BurndownPoint[]>([]);
+  readonly burndownMax = computed(() => {
+    const points = this.burndown();
+    if (!points.length) {
+      return 1;
+    }
+    return Math.max(1, ...points.map((p) => Math.max(p.remaining, p.ideal)));
+  });
   aiOutput = signal('');
   isAiLoading = signal(false);
-  finalizeMessage = signal('');
+  showSprintModal = signal(false);
+  isCreatingSprint = signal(false);
 
   projectId = '';
   newMemberId = '';
+  memberActionError = signal('');
   userSelectOptions = signal<SelectOption[]>([]);
   userSelectLoading = signal(false);
+  userDirectoryHint = signal('');
 
   newSprint: CreateSprintPayload = {
     Name: '',
-    StartDate: new Date().toISOString(),
-    EndDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+    StartDate: new Date().toISOString().slice(0, 16),
+    EndDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 16),
     ProjectId: '',
   };
 
@@ -100,13 +131,21 @@ export class ProjectDetailComponent implements OnInit {
     this.loadProject();
     this.sprintStore.loadFirst();
     this.loadOverview();
-    this.loadUserOptions('');
+  }
+
+  burndownBarHeight(value: number): number {
+    return Math.round((value / this.burndownMax()) * 100);
   }
 
   setTab(tab: Tab): void {
     this.activeTab.set(tab);
-    if (tab === 'members' && !this.memberStore.items().length) {
-      this.memberStore.loadFirst();
+    if (tab === 'members') {
+      if (!this.memberStore.items().length) {
+        this.memberStore.loadFirst();
+      }
+      if (!this.userSelectOptions().length && !this.userSelectLoading()) {
+        this.loadUserOptions('');
+      }
     }
     if (tab === 'activity' && !this.activityStore.items().length) {
       this.activityStore.loadFirst();
@@ -128,7 +167,16 @@ export class ProjectDetailComponent implements OnInit {
 
   loadOverview(): void {
     this.dashboardService.getActiveSprint(this.projectId).subscribe({
-      next: (s) => this.activeSprint.set(s),
+      next: (s) => {
+        this.activeSprint.set(s);
+        if (s?.sprintId) {
+          this.dashboardService.getBurndown(s.sprintId).subscribe({
+            next: (points) => this.burndown.set(points),
+          });
+        } else {
+          this.burndown.set([]);
+        }
+      },
     });
     this.dashboardService
       .getTeamWorkload(this.projectId, { page: 1, limit: 10 })
@@ -152,7 +200,10 @@ export class ProjectDetailComponent implements OnInit {
     event.stopPropagation();
     this.sprintActionError.set('');
     this.sprintService.start(sprint).subscribe({
-      next: () => this.sprintStore.loadFirst(),
+      next: () => {
+        this.sprintStore.loadFirst();
+        this.toast.success(`Sprint "${sprint.name}" started.`);
+      },
       error: (e) =>
         this.sprintActionError.set(
           e?.error?.message ?? e?.message ?? 'Could not start sprint.',
@@ -165,7 +216,10 @@ export class ProjectDetailComponent implements OnInit {
     event.stopPropagation();
     this.sprintActionError.set('');
     this.sprintService.close(sprint).subscribe({
-      next: () => this.sprintStore.loadFirst(),
+      next: () => {
+        this.sprintStore.loadFirst();
+        this.toast.success(`Sprint "${sprint.name}" closed.`);
+      },
       error: (e) =>
         this.sprintActionError.set(
           e?.error?.message ?? e?.message ?? 'Could not close sprint.',
@@ -173,10 +227,15 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
+  openSprintModal(): void {
+    this.showSprintModal.set(true);
+  }
+
   createSprint(): void {
     if (!this.newSprint.Name.trim()) {
       return;
     }
+    this.isCreatingSprint.set(true);
     const payload: CreateSprintPayload = {
       ...this.newSprint,
       StartDate: new Date(this.newSprint.StartDate).toISOString(),
@@ -185,37 +244,80 @@ export class ProjectDetailComponent implements OnInit {
     this.sprintService.create(payload).subscribe({
       next: () => {
         this.newSprint.Name = '';
+        this.isCreatingSprint.set(false);
+        this.showSprintModal.set(false);
         this.sprintStore.loadFirst();
+        this.toast.success('Sprint created.');
+      },
+      error: (e) => {
+        this.isCreatingSprint.set(false);
+        this.sprintActionError.set(e?.error?.message ?? 'Could not create sprint.');
       },
     });
   }
 
   addMember(): void {
-    if (!this.newMemberId) {
+    const userId = this.newMemberId.trim();
+    if (!userId) {
       return;
     }
-    this.memberService.add(this.projectId, this.newMemberId).subscribe({
+    if (!isUuid(userId)) {
+      this.memberActionError.set('Enter a valid user ID (UUID format).');
+      return;
+    }
+    this.memberActionError.set('');
+    this.memberService.add(this.projectId, userId).subscribe({
       next: () => {
         this.newMemberId = '';
         this.memberStore.loadFirst();
+        this.toast.success('Member added to project.');
       },
+      error: (e) =>
+        this.memberActionError.set(e?.error?.message ?? e?.message ?? 'Could not add member.'),
     });
   }
 
-  removeMember(member: ProjectMember): void {
+  addSelfAsMember(): void {
+    const userId = this.authService.currentUser()?.userId;
+    if (!userId) {
+      this.memberActionError.set('Sign in to add yourself to the project.');
+      return;
+    }
+    this.newMemberId = userId;
+    this.addMember();
+  }
+
+  async removeMember(member: ProjectMember): Promise<void> {
+    const confirmed = await this.dialog.confirm({
+      title: 'Remove team member',
+      message: `Remove ${member.memberName || member.memberId} from this project?`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    });
+    if (!confirmed) {
+      return;
+    }
     this.memberService.remove(member.id).subscribe({
-      next: () => this.memberStore.loadFirst(),
+      next: () => {
+        this.memberStore.loadFirst();
+        this.toast.success('Member removed.');
+      },
     });
   }
 
   loadUserOptions(search: string): void {
     this.userSelectLoading.set(true);
-    this.userService.getUsersPaged({ page: 1, limit: 10, search }).subscribe({
+    this.userDirectoryHint.set(
+      this.authService.isAdmin()
+        ? 'Search all users (admin).'
+        : 'User search is limited. Paste a user UUID below if the list is empty.',
+    );
+    this.userDirectory.searchUsers({ page: 1, limit: 10, search }).subscribe({
       next: (result) => {
         this.userSelectOptions.set(
           result.items.map((u) => ({
             value: u.userId,
-            label: `${u.prenom} ${u.nom}`,
+            label: `${u.prenom} ${u.nom}`.trim() || u.email || u.userId,
             sublabel: u.email,
           })),
         );
@@ -234,7 +336,7 @@ export class ProjectDetailComponent implements OnInit {
     } else if (action === 'release') {
       req = this.aiService.getReleaseNotes(this.projectId);
     } else {
-      const sprintId = this.activeSprint()?.id;
+      const sprintId = this.activeSprint()?.sprintId;
       if (!sprintId) {
         this.aiOutput.set('No active sprint for risk analysis.');
         this.isAiLoading.set(false);
@@ -246,6 +348,7 @@ export class ProjectDetailComponent implements OnInit {
       next: (text) => {
         this.aiOutput.set(text);
         this.isAiLoading.set(false);
+        this.toast.info('AI analysis complete.');
       },
       error: (e) => {
         this.aiOutput.set(e?.message ?? 'AI request failed.');
@@ -254,14 +357,19 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
-  finalizeProject(): void {
-    if (!confirm('Finalize this project execution?')) {
+  async finalizeProject(): Promise<void> {
+    const confirmed = await this.dialog.confirm({
+      title: 'Finalize project',
+      message: 'Finalize this project execution? Completed points will be tallied.',
+      confirmLabel: 'Finalize',
+      variant: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
     this.executionService.finalize(this.projectId).subscribe({
-      next: () => this.finalizeMessage.set('Project finalized successfully.'),
-      error: (e) =>
-        this.finalizeMessage.set(e?.error?.message ?? e?.message ?? 'Finalize failed.'),
+      next: () => this.toast.success('Project finalized successfully.'),
+      error: (e) => this.toast.error(e?.error?.message ?? e?.message ?? 'Finalize failed.'),
     });
   }
 }

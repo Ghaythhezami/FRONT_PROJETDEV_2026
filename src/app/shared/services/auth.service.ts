@@ -24,6 +24,9 @@ export class AuthService {
 
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly isAuthenticated = computed(() => !!this.accessToken);
+  readonly isAdmin = computed(
+    () => this.currentUserSignal()?.role?.trim().toLowerCase() === 'admin',
+  );
 
   constructor(
     private readonly http: HttpClient,
@@ -44,14 +47,20 @@ export class AuthService {
     if (!refreshToken) {
       throw new Error('No refresh token');
     }
-    return this.http.post<TokenApiDto>(`${this.apiUrl}/refresh`, { RefreshToken: refreshToken }).pipe(
-      map((tokens) => this.normalizeTokens(tokens)),
-      tap((tokens) => {
-        const storage = localStorage.getItem(ACCESS_TOKEN_KEY) ? localStorage : sessionStorage;
-        storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-        storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-      }),
-    );
+    const accessToken = this.accessToken ?? '';
+    return this.http
+      .post<TokenApiDto>(`${this.apiUrl}/refresh`, {
+        AccessToken: accessToken,
+        RefreshToken: refreshToken,
+      })
+      .pipe(
+        map((tokens) => this.normalizeTokens(tokens)),
+        tap((tokens) => {
+          const storage = localStorage.getItem(ACCESS_TOKEN_KEY) ? localStorage : sessionStorage;
+          storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+          storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+        }),
+      );
   }
 
   getUsers(query?: { page?: number; limit?: number }): Observable<AuthUser[]> {
@@ -72,11 +81,12 @@ export class AuthService {
       .post<{ user?: UserResponseDto } | UserResponseDto>(`${this.apiUrl}/register`, user)
       .pipe(
         map((response) => {
+          const record = response as Record<string, unknown>;
           const dto =
-            response && typeof response === 'object' && 'user' in response
-              ? (response.user ?? {})
+            record && typeof record === 'object' && ('user' in record || 'User' in record)
+              ? ((record['user'] ?? record['User']) as UserResponseDto)
               : (response as UserResponseDto);
-          return this.normalizeUser(dto);
+          return this.normalizeUser(dto ?? {});
         }),
       );
   }
@@ -160,7 +170,12 @@ export class AuthService {
     }
 
     try {
-      return JSON.parse(rawUser) as AuthUser;
+      const user = JSON.parse(rawUser) as AuthUser;
+      if (this.accessToken) {
+        this.notificationService.loadMine().subscribe();
+        void this.boardSignalrService.start();
+      }
+      return user;
     } catch {
       this.clearAuthStorage();
       return null;

@@ -1,8 +1,12 @@
 <div class="space-y-6">
   <app-page-breadcrumb pageTitle="Issue" />
 
+  @if (errorMessage()) {
+    <app-ui-alert [message]="errorMessage()" variant="error" />
+  }
+
   @if (issue(); as iss) {
-    <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-white/[0.05] dark:bg-white/[0.03]">
+    <app-ui-card>
       <h1 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ iss.title }}</h1>
       <div class="mt-4 flex flex-wrap gap-2">
         @for (st of statuses; track st) {
@@ -18,118 +22,77 @@
             {{ statusLabels[st] }}
           </button>
         }
-        <button
-          type="button"
-          class="rounded-lg border border-gray-300 px-3 py-1 text-xs dark:border-gray-700"
-          (click)="autoAssign()"
-        >
-          Auto-assign
-        </button>
+        <app-ui-button variant="outline" size="sm" (pressed)="autoAssign()">Auto-assign (AI)</app-ui-button>
       </div>
-    </div>
+    </app-ui-card>
   }
 
   <div class="grid gap-6 lg:grid-cols-2">
-    <section class="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      <div class="border-b border-gray-100 px-5 py-4 dark:border-white/[0.05]">
-        <h2 class="font-semibold text-gray-800 dark:text-white/90">Comments</h2>
-      </div>
-      <div class="p-5 space-y-4">
-        <textarea
-          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-          rows="3"
-          placeholder="Add a comment…"
-          [(ngModel)]="newComment"
-        ></textarea>
-        <button
-          type="button"
-          class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white hover:bg-brand-600"
-          (click)="postComment()"
-        >
-          Post comment
-        </button>
-        <ul class="divide-y divide-gray-100 dark:divide-white/[0.05]">
-          @for (c of commentStore.items(); track c.id) {
-            <li class="py-3">
-              <p class="text-sm text-gray-800 dark:text-white/90">{{ c.content }}</p>
-              <p class="mt-1 text-xs text-gray-500">{{ c.authorName || 'User' }} · {{ c.createdAt | date: 'short' }}</p>
-            </li>
-          }
-        </ul>
-        <div
-          appInfiniteScroll
-          [appInfiniteScrollDisabled]="!commentStore.hasMore()"
-          (appInfiniteScroll)="commentStore.loadMore()"
-        ></div>
-        <app-load-more-footer
-          [loading]="commentStore.loadingMore()"
-          [hasMore]="commentStore.hasMore()"
-          [shown]="commentStore.items().length"
-          [total]="commentStore.total()"
-          (loadMore)="commentStore.loadMore()"
-        />
-      </div>
-    </section>
-
-    <section class="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      <div class="border-b border-gray-100 px-5 py-4 dark:border-white/[0.05]">
-        <h2 class="font-semibold text-gray-800 dark:text-white/90">Attachments</h2>
-      </div>
-      <div class="p-5 space-y-4">
-        <input type="file" class="text-sm" (change)="onFileSelected($event)" />
-        <ul class="space-y-2">
-          @for (a of attachmentStore.items(); track a.id) {
-            <li class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800">
-              <span>{{ a.fileName }}</span>
-              @if (a.url) {
-                <a [href]="a.url" target="_blank" class="text-brand-600 text-xs">Open</a>
-              }
-            </li>
-          }
-        </ul>
-        <div
-          appInfiniteScroll
-          [appInfiniteScrollDisabled]="!attachmentStore.hasMore()"
-          (appInfiniteScroll)="attachmentStore.loadMore()"
-        ></div>
-      </div>
-    </section>
-  </div>
-
-  <section class="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-    <div class="border-b border-gray-100 px-5 py-4 dark:border-white/[0.05]">
-      <h2 class="font-semibold text-gray-800 dark:text-white/90">Subtasks</h2>
-    </div>
-    <div class="p-5 space-y-4">
-      <div class="flex gap-2">
-        <input
-          class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-          placeholder="New subtask"
-          [(ngModel)]="newSubtaskTitle"
-        />
-        <button type="button" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white" (click)="addSubtask()">
-          Add
-        </button>
-        <button
-          type="button"
-          class="rounded-lg border border-brand-300 px-4 py-2 text-sm text-brand-600"
-          [disabled]="isAiLoading()"
-          (click)="generateAiSubtasks()"
-        >
-          {{ isAiLoading() ? 'AI…' : 'AI suggest' }}
-        </button>
-      </div>
-      @if (aiSubtasks()) {
-        <pre class="whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-xs dark:bg-brand-500/10">{{ aiSubtasks() }}</pre>
-      }
-      <ul class="space-y-2">
-        @for (st of subtasks(); track st.id) {
-          <li class="flex items-center gap-3">
-            <input type="checkbox" [checked]="st.isCompleted" (change)="toggleSubtask(st)" />
-            <span [class.line-through]="st.isCompleted">{{ st.title }}</span>
+    <app-ui-card title="Comments" subtitle="POST /api/Comments">
+      <app-ui-form-textarea
+        placeholder="Add a comment…"
+        [(ngModel)]="newComment"
+        name="comment"
+      />
+      <app-ui-button className="mt-3" (pressed)="postComment()">Post comment</app-ui-button>
+      <ul class="mt-4 divide-y divide-gray-100 dark:divide-white/[0.05]">
+        @for (c of commentStore.items(); track c.id) {
+          <li class="py-3">
+            <p class="text-sm text-gray-800 dark:text-white/90">{{ c.content }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ c.authorName || 'User' }} · {{ c.createdAt | date: 'short' }}</p>
           </li>
         }
       </ul>
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!commentStore.hasMore()" (appInfiniteScroll)="commentStore.loadMore()"></div>
+      <app-load-more-footer
+        [loading]="commentStore.loadingMore()"
+        [hasMore]="commentStore.hasMore()"
+        [shown]="commentStore.items().length"
+        [total]="commentStore.total()"
+        (loadMore)="commentStore.loadMore()"
+      />
+    </app-ui-card>
+
+    <app-ui-card title="Attachments" subtitle="POST /api/Attachments/issue/{id}">
+      <input type="file" class="text-sm" (change)="onFileSelected($event)" />
+      <ul class="mt-4 space-y-2">
+        @for (a of attachmentStore.items(); track a.id) {
+          <li class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800">
+            <span>{{ a.fileName }}</span>
+            @if (a.url) {
+              <a [href]="a.url" target="_blank" class="text-xs text-brand-600">Open</a>
+            }
+          </li>
+        }
+      </ul>
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!attachmentStore.hasMore()" (appInfiniteScroll)="attachmentStore.loadMore()"></div>
+    </app-ui-card>
+  </div>
+
+  <app-ui-card title="Subtasks" subtitle="GET/POST /api/SubTasks · AI /api/ai/generate-subtasks">
+    <div class="flex flex-wrap gap-2">
+      <div class="min-w-[200px] flex-1">
+        <app-ui-form-field
+          placeholder="New subtask"
+          [(ngModel)]="newSubtaskTitle"
+          name="subtaskTitle"
+        />
+      </div>
+      <app-ui-button (pressed)="addSubtask()">Add</app-ui-button>
+      <app-ui-button variant="secondary" [loading]="isAiLoading()" (pressed)="generateAiSubtasks()">
+        AI suggest
+      </app-ui-button>
     </div>
-  </section>
+    @if (aiSubtasks()) {
+      <pre class="mt-4 whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-xs dark:bg-brand-500/10">{{ aiSubtasks() }}</pre>
+    }
+    <ul class="mt-4 space-y-2">
+      @for (st of subtasks(); track st.id) {
+        <li class="flex items-center gap-3">
+          <input type="checkbox" [checked]="st.isCompleted" (change)="toggleSubtask(st)" />
+          <span [class.line-through]="st.isCompleted">{{ st.title }}</span>
+        </li>
+      }
+    </ul>
+  </app-ui-card>
 </div>

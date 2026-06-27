@@ -1,19 +1,32 @@
 import {
   ActivityItem,
+  ActiveSprintSummary,
+  BurndownPoint,
   Issue,
+  ItemStatus,
   Project,
   ProjectMember,
   Sprint,
   SprintBoard,
+  TeamWorkloadMember,
   UserStory,
-  ItemStatus,
+  VelocityPoint,
   KANBAN_COLUMNS,
   ITEM_STATUS_LABELS,
 } from '../models/domain.models';
 import { pickDto } from './api.util';
 import { extractUuid } from './id.util';
+import { API_BASE_URL } from '../config/api.config';
 
 type Raw = Record<string, unknown>;
+
+/** Maps backend Closed(5) to Done column for kanban display. */
+export function normalizeIssueStatus(status: number): number {
+  if (status === ItemStatus.Closed) {
+    return ItemStatus.Done;
+  }
+  return status;
+}
 
 export function normalizeProject(raw: Raw): Project {
   const project = pickDto<Project>(raw, {
@@ -40,13 +53,28 @@ export function normalizeSprint(raw: Raw): Sprint {
     completedPoints: ['completedPoints', 'CompletedPoints'],
   });
   sprint.id = extractUuid(raw, ['sprintId', 'SprintId', 'id', 'Id']) || sprint.id;
-  sprint.projectId =
-    extractUuid(raw, ['projectId', 'ProjectId']) || sprint.projectId;
+  sprint.projectId = extractUuid(raw, ['projectId', 'ProjectId']) || sprint.projectId;
   return sprint;
 }
 
+export function normalizeActiveSprintSummary(raw: Raw): ActiveSprintSummary {
+  const summary = pickDto<ActiveSprintSummary>(raw, {
+    sprintId: ['sprintId', 'SprintId'],
+    name: ['name', 'Name'],
+    projectId: ['projectId', 'ProjectId'],
+    totalStories: ['totalStories', 'TotalStories'],
+    doneStories: ['doneStories', 'DoneStories'],
+    totalIssues: ['totalIssues', 'TotalIssues'],
+    doneIssues: ['doneIssues', 'DoneIssues'],
+    completedPoints: ['completedPoints', 'CompletedPoints'],
+  });
+  summary.sprintId = extractUuid(raw, ['sprintId', 'SprintId']) || summary.sprintId;
+  summary.projectId = extractUuid(raw, ['projectId', 'ProjectId']) || summary.projectId;
+  return summary;
+}
+
 export function normalizeUserStory(raw: Raw): UserStory {
-  return pickDto<UserStory>(raw, {
+  const story = pickDto<UserStory>(raw, {
     id: ['id', 'Id', 'userStoryId', 'UserStoryId'],
     title: ['title', 'Title'],
     description: ['description', 'Description'],
@@ -58,9 +86,13 @@ export function normalizeUserStory(raw: Raw): UserStory {
     status: ['status', 'Status'],
     projectId: ['projectId', 'ProjectId'],
   });
+  story.id = extractUuid(raw, ['userStoryId', 'UserStoryId', 'id', 'Id']) || story.id;
+  story.epicId = extractUuid(raw, ['epicId', 'EpicId']) || story.epicId;
+  return story;
 }
 
 export function normalizeIssue(raw: Raw): Issue {
+  const rawStatus = Number(raw['status'] ?? raw['Status'] ?? ItemStatus.Todo);
   const issue = pickDto<Issue>(raw, {
     id: ['issueId', 'IssueId', 'id', 'Id'],
     title: ['title', 'Title'],
@@ -82,8 +114,8 @@ export function normalizeIssue(raw: Raw): Issue {
     progressPercent: ['progressPercent', 'ProgressPercent', 'progress', 'Progress'],
   });
   issue.id = extractUuid(raw, ['issueId', 'IssueId', 'id', 'Id']) || issue.id;
-  issue.userStoryId =
-    extractUuid(raw, ['userStoryId', 'UserStoryId']) || issue.userStoryId;
+  issue.userStoryId = extractUuid(raw, ['userStoryId', 'UserStoryId']) || issue.userStoryId;
+  issue.status = normalizeIssueStatus(rawStatus);
   if (issue.progressPercent === undefined) {
     issue.progressPercent = progressFromStatus(Number(issue.status));
   }
@@ -92,11 +124,11 @@ export function normalizeIssue(raw: Raw): Issue {
 
 function progressFromStatus(status: number): number {
   switch (status) {
-    case 2:
+    case ItemStatus.InProgress:
       return 60;
-    case 3:
+    case ItemStatus.InReview:
       return 80;
-    case 4:
+    case ItemStatus.Done:
       return 100;
     default:
       return 0;
@@ -104,7 +136,7 @@ function progressFromStatus(status: number): number {
 }
 
 export function normalizeProjectMember(raw: Raw): ProjectMember {
-  return pickDto<ProjectMember>(raw, {
+  const member = pickDto<ProjectMember>(raw, {
     id: ['id', 'Id', 'projectMemberId', 'ProjectMemberId'],
     projectId: ['projectId', 'ProjectId'],
     memberId: ['memberId', 'MemberId'],
@@ -112,33 +144,94 @@ export function normalizeProjectMember(raw: Raw): ProjectMember {
     memberEmail: ['memberEmail', 'MemberEmail', 'email', 'Email'],
     role: ['role', 'Role'],
   });
+  member.id =
+    extractUuid(raw, ['projectMemberId', 'ProjectMemberId', 'id', 'Id']) || member.id;
+  return member;
 }
 
 export function normalizeActivity(raw: Raw): ActivityItem {
-  return pickDto<ActivityItem>(raw, {
-    id: ['id', 'Id', 'activityId', 'ActivityId'],
-    description: ['description', 'Description', 'message', 'Message'],
-    createdAt: ['createdAt', 'CreatedAt'],
-    actorName: ['actorName', 'ActorName', 'userName', 'UserName'],
-    type: ['type', 'Type'],
-  });
+  const action = String(raw['action'] ?? raw['Action'] ?? '');
+  const entityType = String(raw['entityType'] ?? raw['EntityType'] ?? '');
+  const description =
+    String(raw['description'] ?? raw['Description'] ?? raw['message'] ?? raw['Message'] ?? '') ||
+    [action, entityType].filter(Boolean).join(' · ');
+
+  return {
+    id: extractUuid(raw, ['activityLogId', 'ActivityLogId', 'id', 'Id']) || '',
+    description,
+    createdAt: String(raw['createdAt'] ?? raw['CreatedAt'] ?? ''),
+    actorName: String(raw['actorName'] ?? raw['ActorName'] ?? raw['userName'] ?? raw['UserName'] ?? ''),
+    type: entityType || action,
+  };
 }
 
-export function normalizeSprintBoard(raw: Raw, sprintId: string): SprintBoard {
-  const columnsRaw = (raw['columns'] ?? raw['Columns'] ?? raw['board'] ?? raw['Board']) as
-    | Raw[]
-    | undefined;
+export function normalizeTeamWorkload(raw: Raw): TeamWorkloadMember {
+  const open = Number(raw['openIssueCount'] ?? raw['OpenIssueCount'] ?? 0);
+  return {
+    memberId: extractUuid(raw, ['memberId', 'MemberId']) || '',
+    memberName: String(raw['memberName'] ?? raw['MemberName'] ?? 'Member'),
+    assignedIssues: open,
+    completedIssues: Number(raw['completedIssues'] ?? raw['CompletedIssues'] ?? 0),
+  };
+}
 
-  if (Array.isArray(columnsRaw) && columnsRaw.length > 0) {
+export function normalizeBurndownPoints(rawList: Raw[]): BurndownPoint[] {
+  const remaining = rawList.find(
+    (p) => String(p['label'] ?? p['Label']).toLowerCase() === 'remaining',
+  );
+  const done = rawList.find((p) => String(p['label'] ?? p['Label']).toLowerCase() === 'done');
+  const remVal = Number(remaining?.['value'] ?? remaining?.['Value'] ?? 0);
+  const doneVal = Number(done?.['value'] ?? done?.['Value'] ?? 0);
+  const total = remVal + doneVal;
+
+  return [
+    { date: 'Start', remaining: total, ideal: total },
+    { date: 'Now', remaining: remVal, ideal: Math.round(total / 2) },
+  ];
+}
+
+export function normalizeVelocityPoints(rawList: Raw[]): VelocityPoint[] {
+  return rawList.map((raw) => ({
+    sprintName: String(raw['label'] ?? raw['Label'] ?? ''),
+    completedPoints: Number(raw['value'] ?? raw['Value'] ?? 0),
+  }));
+}
+
+export function normalizeAttachment(raw: Raw): import('../models/domain.models').Attachment {
+  const blobUrl = String(raw['blobUrl'] ?? raw['BlobUrl'] ?? '');
+  const resolvedUrl =
+    blobUrl.startsWith('http') ? blobUrl : blobUrl ? `${API_BASE_URL}${blobUrl}` : undefined;
+
+  const attachment = pickDto<import('../models/domain.models').Attachment>(raw, {
+    id: ['attachmentId', 'AttachmentId', 'id', 'Id'],
+    fileName: ['fileName', 'FileName', 'name', 'Name'],
+    url: ['url', 'Url', 'fileUrl', 'FileUrl'],
+    issueId: ['issueId', 'IssueId'],
+    uploadedAt: ['uploadedAt', 'UploadedAt', 'createdAt', 'CreatedAt'],
+    sizeBytes: ['fileSize', 'FileSize', 'sizeBytes', 'SizeBytes'],
+  });
+  attachment.id =
+    extractUuid(raw, ['attachmentId', 'AttachmentId', 'id', 'Id']) || attachment.id;
+  if (!attachment.url && resolvedUrl) {
+    attachment.url = resolvedUrl;
+  }
+  return attachment;
+}
+
+export function normalizeSprintBoard(raw: unknown, sprintId: string): SprintBoard {
+  if (Array.isArray(raw)) {
+    const columnsRaw = raw as Raw[];
     return {
       sprintId,
-      sprintName: String(raw['sprintName'] ?? raw['SprintName'] ?? ''),
+      sprintName: '',
       columns: columnsRaw.map((col) => ({
-        status: Number(col['status'] ?? col['Status']) as ItemStatus,
+        status: normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus,
         label: String(
           col['label'] ??
             col['Label'] ??
-            ITEM_STATUS_LABELS[Number(col['status'] ?? col['Status']) as ItemStatus] ??
+            ITEM_STATUS_LABELS[
+              normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus
+            ] ??
             'Column',
         ),
         issues: ((col['issues'] ?? col['Issues'] ?? []) as Raw[]).map(normalizeIssue),
@@ -146,11 +239,32 @@ export function normalizeSprintBoard(raw: Raw, sprintId: string): SprintBoard {
     };
   }
 
-  const issues = ((raw['issues'] ?? raw['Issues'] ?? []) as Raw[]).map(normalizeIssue);
+  const record = (raw ?? {}) as Raw;
+  const columnsRaw = (record['columns'] ?? record['Columns']) as Raw[] | undefined;
 
+  if (Array.isArray(columnsRaw) && columnsRaw.length > 0) {
+    return {
+      sprintId,
+      sprintName: String(record['sprintName'] ?? record['SprintName'] ?? ''),
+      columns: columnsRaw.map((col) => ({
+        status: normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus,
+        label: String(
+          col['label'] ??
+            col['Label'] ??
+            ITEM_STATUS_LABELS[
+              normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus
+            ] ??
+            'Column',
+        ),
+        issues: ((col['issues'] ?? col['Issues'] ?? []) as Raw[]).map(normalizeIssue),
+      })),
+    };
+  }
+
+  const issues = ((record['issues'] ?? record['Issues'] ?? []) as Raw[]).map(normalizeIssue);
   return {
     sprintId,
-    sprintName: String(raw['sprintName'] ?? raw['SprintName'] ?? ''),
+    sprintName: String(record['sprintName'] ?? record['SprintName'] ?? ''),
     columns: KANBAN_COLUMNS.map((status) => ({
       status,
       label: ITEM_STATUS_LABELS[status],

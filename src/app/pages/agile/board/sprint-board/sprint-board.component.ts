@@ -1,30 +1,57 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { forkJoin, of, Observable } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
 import { KanbanCardComponent } from '../../../../shared/components/agile/kanban-card/kanban-card.component';
 import { IssueService } from '../../../../shared/services/issue.service';
 import { UserStoryService } from '../../../../shared/services/user-story.service';
-import { CommentService } from '../../../../shared/services/comment.service';
-import { AttachmentService } from '../../../../shared/services/attachment.service';
+import { DashboardService } from '../../../../shared/services/dashboard.service';
+import { BoardSignalrService } from '../../../../shared/services/board-signalr.service';
 import { isUuid } from '../../../../shared/utils/id.util';
-import { Issue, ItemStatus, KANBAN_COLUMNS, KANBAN_COLUMN_UI, UserStory } from '../../../../shared/models/domain.models';
+import {
+  Issue,
+  ItemStatus,
+  KANBAN_COLUMNS,
+  KANBAN_COLUMN_UI,
+  UserStory,
+} from '../../../../shared/models/domain.models';
+import {
+  AppAlertComponent,
+  AppCardComponent,
+  FormFieldComponent,
+  FormSelectComponent,
+  SelectOption,
+  ToastService,
+  UiButtonComponent,
+} from '../../../../shared/ui';
 
 @Component({
   selector: 'app-sprint-board',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageBreadcrumbComponent, KanbanCardComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    PageBreadcrumbComponent,
+    KanbanCardComponent,
+    AppCardComponent,
+    AppAlertComponent,
+    UiButtonComponent,
+    FormFieldComponent,
+    FormSelectComponent,
+  ],
   templateUrl: './sprint-board.component.html',
 })
-export class SprintBoardComponent implements OnInit {
+export class SprintBoardComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly issueService = inject(IssueService);
   private readonly userStoryService = inject(UserStoryService);
-  private readonly commentService = inject(CommentService);
-  private readonly attachmentService = inject(AttachmentService);
+  private readonly dashboardService = inject(DashboardService);
+  private readonly boardSignalr = inject(BoardSignalrService);
+  private readonly toast = inject(ToastService);
+  private hubSub?: Subscription;
 
   sprintId = '';
   sprintName = signal('');
@@ -32,7 +59,6 @@ export class SprintBoardComponent implements OnInit {
   sprintStories = signal<UserStory[]>([]);
   isLoading = signal(true);
   errorMessage = signal('');
-  actionMessage = signal('');
   movingIssueId = signal<string | null>(null);
 
   newIssueTitle = '';
@@ -41,6 +67,13 @@ export class SprintBoardComponent implements OnInit {
   readonly boardColumns = KANBAN_COLUMNS;
   readonly columnUi = KANBAN_COLUMN_UI;
 
+  get storyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Select user story…' },
+      ...this.sprintStories().map((s) => ({ value: s.id, label: s.title })),
+    ];
+  }
+
   ngOnInit(): void {
     this.sprintId = this.route.snapshot.paramMap.get('sprintId') ?? '';
     if (!isUuid(this.sprintId)) {
@@ -48,45 +81,50 @@ export class SprintBoardComponent implements OnInit {
       this.isLoading.set(false);
       return;
     }
+    void this.boardSignalr.start();
+    this.hubSub = this.boardSignalr.boardChanged$.subscribe(() => this.loadBoard());
     this.loadBoard();
+    this.loadSprintStories();
+  }
+
+  ngOnDestroy(): void {
+    this.hubSub?.unsubscribe();
   }
 
   loadBoard(): void {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    forkJoin({
-      issues: this.loadAllBoardIssues(),
-      stories: this.loadAllSprintStories(),
-    })
-      .pipe(
-        switchMap(({ issues, stories }) => {
-          this.sprintStories.set(stories);
-          const storyMap = new Map(stories.map((s) => [s.id, s]));
-          const enriched = issues.map((issue) => this.enrichIssue(issue, storyMap.get(issue.userStoryId)));
-          return this.enrichCounts(enriched);
-        }),
-      )
-      .subscribe({
-        next: (issues) => {
-          this.columns.set(
-            KANBAN_COLUMNS.map((status) => ({
-              status,
-              issues: issues.filter((i) => Number(i.status) === status),
-            })),
-          );
-          this.isLoading.set(false);
-        },
-        error: (error) => {
-          this.errorMessage.set(error?.error?.message ?? error?.message ?? 'Unable to load board.');
-          this.isLoading.set(false);
-        },
-      });
+    this.dashboardService.getSprintBoard(this.sprintId).subscribe({
+      next: (board) => {
+        this.sprintName.set(board.sprintName);
+        const columnMap = new Map(board.columns.map((c) => [c.status, c.issues]));
+        this.columns.set(
+          KANBAN_COLUMNS.map((status) => ({
+            status,
+            issues: columnMap.get(status) ?? [],
+          })),
+        );
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        this.errorMessage.set(
+          error?.error?.message ?? error?.message ?? 'Unable to load board.',
+        );
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  private loadSprintStories(): void {
+    this.userStoryService.getBySprint(this.sprintId, { page: 1, limit: 100 }).subscribe({
+      next: (r) => this.sprintStories.set(r.items),
+    });
   }
 
   createIssue(): void {
     if (!this.newIssueTitle.trim() || !this.newIssueStoryId) {
-      this.actionMessage.set('Select a user story and enter a task title.');
+      this.toast.warning('Select a user story and enter a task title.');
       return;
     }
     this.issueService
@@ -98,11 +136,11 @@ export class SprintBoardComponent implements OnInit {
       .subscribe({
         next: () => {
           this.newIssueTitle = '';
-          this.actionMessage.set('Task created.');
+          this.toast.success('Task created.');
           this.loadBoard();
         },
         error: (e) =>
-          this.actionMessage.set(e?.error?.message ?? e?.message ?? 'Could not create task.'),
+          this.toast.error(e?.error?.message ?? e?.message ?? 'Could not create task.'),
       });
   }
 
@@ -118,7 +156,7 @@ export class SprintBoardComponent implements OnInit {
       },
       error: (e) => {
         this.movingIssueId.set(null);
-        this.actionMessage.set(e?.error?.message ?? 'Move failed.');
+        this.toast.error(e?.error?.message ?? 'Move failed.');
       },
     });
   }
@@ -143,86 +181,5 @@ export class SprintBoardComponent implements OnInit {
 
   onDragStart(event: DragEvent, issue: Issue): void {
     event.dataTransfer?.setData('issueId', issue.id);
-  }
-
-  assignStoryToSprint(story: UserStory): void {
-    this.userStoryService.assignToSprint(story.id, this.sprintId).subscribe({
-      next: () => {
-        this.actionMessage.set(`"${story.title}" added to sprint.`);
-        this.loadBoard();
-      },
-      error: (e) => this.actionMessage.set(e?.error?.message ?? 'Could not assign story.'),
-    });
-  }
-
-  private loadAllBoardIssues(): Observable<Issue[]> {
-    return this.fetchAllPages((page) =>
-      this.issueService.getBoard(this.sprintId, { page, limit: 10 }),
-    );
-  }
-
-  private loadAllSprintStories(): Observable<UserStory[]> {
-    return this.fetchAllPages((page) =>
-      this.userStoryService.getBySprint(this.sprintId, { page, limit: 10 }),
-    );
-  }
-
-  private fetchAllPages<T>(
-    fetchPage: (page: number) => Observable<{ items: T[]; hasMore: boolean }>,
-  ): Observable<T[]> {
-    const loadPage = (page: number, collected: T[]): Observable<T[]> =>
-      fetchPage(page).pipe(
-        switchMap((result) => {
-          const next = [...collected, ...result.items];
-          return result.hasMore ? loadPage(page + 1, next) : of(next);
-        }),
-      );
-    return loadPage(1, []);
-  }
-
-  private enrichIssue(issue: Issue, story?: UserStory): Issue {
-    return {
-      ...issue,
-      description: issue.description || story?.description || '',
-      priority: issue.priority ?? story?.priority,
-      progressPercent: issue.progressPercent ?? this.progressFromStatus(Number(issue.status)),
-    };
-  }
-
-  private progressFromStatus(status: number): number {
-    switch (status) {
-      case ItemStatus.InProgress:
-        return 60;
-      case ItemStatus.InReview:
-        return 80;
-      case ItemStatus.Done:
-        return 100;
-      default:
-        return 0;
-    }
-  }
-
-  private enrichCounts(issues: Issue[]) {
-    if (!issues.length) {
-      return of([]);
-    }
-    return forkJoin(
-      issues.map((issue) =>
-        forkJoin({
-          comments: this.commentService
-            .getByIssue(issue.id, { page: 1, limit: 1 })
-            .pipe(catchError(() => of({ total: 0, items: [] }))),
-          attachments: this.attachmentService
-            .getByIssue(issue.id, { page: 1, limit: 1 })
-            .pipe(catchError(() => of({ total: 0, items: [] }))),
-        }).pipe(
-          map(({ comments, attachments }) => ({
-            ...issue,
-            commentCount: comments.total,
-            attachmentCount: attachments.total,
-          })),
-        ),
-      ),
-    );
   }
 }

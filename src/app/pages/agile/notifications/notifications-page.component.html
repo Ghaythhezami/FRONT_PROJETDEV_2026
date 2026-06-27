@@ -2,27 +2,27 @@
   <app-page-breadcrumb pageTitle="Notifications" />
   <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Notifications</h1>
 
-  @if (actionMessage()) {
-    <p class="text-sm text-brand-600">{{ actionMessage() }}</p>
+  @if (authService.isAdmin()) {
+    <div class="grid gap-6 lg:grid-cols-2">
+      <app-ui-card title="Send notification" subtitle="POST /api/Notifications/Send">
+        <form class="space-y-3" (ngSubmit)="sendNotification()">
+          <app-ui-form-field label="Receiver user ID" [(ngModel)]="sendForm.receiverId" name="receiverId" [required]="true" />
+          <app-ui-form-textarea label="Message" [(ngModel)]="sendForm.description" name="desc" />
+          <app-ui-form-field label="Link (optional)" [(ngModel)]="sendForm.link" name="link" />
+          <app-ui-button type="submit">Send</app-ui-button>
+        </form>
+      </app-ui-card>
+      <app-ui-card title="Test notification" subtitle="POST /api/Notifications/TTest">
+        <form class="space-y-3" (ngSubmit)="sendTest()">
+          <app-ui-form-field label="Receiver user ID" [(ngModel)]="testForm.receiverId" name="testReceiver" [required]="true" />
+          <app-ui-form-textarea label="Description" [(ngModel)]="testForm.description" name="testDesc" />
+          <app-ui-button type="submit" variant="outline">Send test</app-ui-button>
+        </form>
+      </app-ui-card>
+    </div>
   }
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <form class="rounded-xl border border-gray-200 p-5 space-y-3 dark:border-white/[0.05]" (ngSubmit)="sendNotification()">
-      <h2 class="font-semibold">Send notification</h2>
-      <input class="w-full rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Receiver user ID (UUID)" [(ngModel)]="sendForm.receiverId" name="receiverId" required />
-      <textarea class="w-full rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Message" [(ngModel)]="sendForm.description" name="desc"></textarea>
-      <input class="w-full rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Link (optional)" [(ngModel)]="sendForm.link" name="link" />
-      <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white">Send</button>
-    </form>
-    <form class="rounded-xl border border-gray-200 p-5 space-y-3 dark:border-white/[0.05]" (ngSubmit)="sendTest()">
-      <h2 class="font-semibold">Test notification</h2>
-      <input class="w-full rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Receiver user ID" [(ngModel)]="testForm.receiverId" name="testReceiver" required />
-      <textarea class="w-full rounded-lg border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Description" [(ngModel)]="testForm.description" name="testDesc"></textarea>
-      <button type="submit" class="rounded-lg border px-4 py-2 text-sm">Send test</button>
-    </form>
-  </div>
-
-  <div class="rounded-xl border border-gray-200 dark:border-white/[0.05] dark:bg-white/[0.03]">
+  <app-ui-card title="My notifications" subtitle="GET /api/Notifications/mine" [noPadding]="true">
     <ul class="divide-y dark:divide-white/[0.05]">
       @for (n of store.items(); track n.notificationId) {
         <li class="flex items-start justify-between gap-4 px-5 py-4" [class.opacity-60]="n.isRead">
@@ -32,12 +32,14 @@
             <p class="text-xs text-gray-500">{{ n.createdAt | date: 'medium' }}</p>
           </div>
           @if (!n.isRead) {
-            <button type="button" class="text-xs text-brand-600" (click)="markRead(n)">Mark read</button>
+            <app-ui-button variant="ghost" size="xs" (pressed)="markRead(n)">Mark read</app-ui-button>
           }
         </li>
+      } @empty {
+        <li class="px-5 py-12 text-center text-sm text-gray-500">No notifications</li>
       }
     </ul>
     <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore()" (appInfiniteScroll)="store.loadMore()"></div>
     <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
-  </div>
+  </app-ui-card>
 </div>
