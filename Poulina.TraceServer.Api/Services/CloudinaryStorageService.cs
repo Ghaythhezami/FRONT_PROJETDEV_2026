@@ -1,11 +1,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
-using System.Security.Cryptography;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -52,52 +50,51 @@ namespace AgileAi.Api.Services
 
             var folder = _options.Folder?.Trim() ?? "agile-ai";
             var resourceType = ResolveResourceType(file.FileName);
-            var useUnsignedPreset = !string.IsNullOrWhiteSpace(_options.UploadPreset) &&
-                                    (string.IsNullOrWhiteSpace(_options.ApiKey) ||
-                                     string.IsNullOrWhiteSpace(_options.ApiSecret));
+            var hasApiCredentials = !string.IsNullOrWhiteSpace(_options.ApiKey) &&
+                                    !string.IsNullOrWhiteSpace(_options.ApiSecret);
+            var hasUploadPreset = !string.IsNullOrWhiteSpace(_options.UploadPreset);
 
-            if (!useUnsignedPreset &&
-                (string.IsNullOrWhiteSpace(_options.ApiKey) ||
-                 string.IsNullOrWhiteSpace(_options.ApiSecret)))
+            if (!hasApiCredentials && !hasUploadPreset)
             {
-                throw new InvalidOperationException("Cloudinary API key and secret are required for signed uploads.");
+                throw new InvalidOperationException(
+                    "Cloudinary requires API key + secret (signed/basic auth) or an unsigned UploadPreset.");
             }
 
             using var stream = file.OpenReadStream();
             using var content = new MultipartFormDataContent();
 
-            if (useUnsignedPreset)
+            if (!string.IsNullOrWhiteSpace(folder))
             {
-                content.Add(new StringContent(_options.UploadPreset.Trim()), "upload_preset");
                 content.Add(new StringContent(folder), "folder");
             }
-            else
+
+            if (!hasApiCredentials && hasUploadPreset)
             {
-                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                var parameters = new SortedDictionary<string, string>
-                {
-                    ["folder"] = folder,
-                    ["timestamp"] = timestamp.ToString(),
-                };
-
-                var signaturePayload = string.Join("&", parameters.Select(p => $"{p.Key}={p.Value}")) +
-                                       _options.ApiSecret;
-                var signature = Sha1Hex(signaturePayload);
-
-                content.Add(new StringContent(_options.ApiKey), "api_key");
-                content.Add(new StringContent(timestamp.ToString()), "timestamp");
-                content.Add(new StringContent(folder), "folder");
-                content.Add(new StringContent(signature), "signature");
+                content.Add(new StringContent(_options.UploadPreset.Trim()), "upload_preset");
             }
 
             content.Add(new StreamContent(stream), "file", file.FileName);
 
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.PostAsync(
-                $"https://api.cloudinary.com/v1_1/{_options.CloudName}/{resourceType}/upload",
-                content);
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"https://api.cloudinary.com/v1_1/{_options.CloudName}/{resourceType}/upload")
+            {
+                Content = content,
+            };
 
+            if (hasApiCredentials)
+            {
+                // Server-side uploads: Basic Auth (recommended by Cloudinary — no manual signature).
+                // https://cloudinary.com/documentation/image_upload_api_reference
+                var credentials = Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes($"{_options.ApiKey}:{_options.ApiSecret}"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.SendAsync(request);
             var body = await response.Content.ReadAsStringAsync();
+
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException($"Cloudinary upload failed: {body}");
@@ -121,19 +118,6 @@ namespace AgileAi.Api.Services
             return extension is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp" or ".svg"
                 ? "image"
                 : "raw";
-        }
-
-        private static string Sha1Hex(string input)
-        {
-            using var sha1 = SHA1.Create();
-            var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(input));
-            var builder = new StringBuilder(hash.Length * 2);
-            foreach (var b in hash)
-            {
-                builder.Append(b.ToString("x2"));
-            }
-
-            return builder.ToString();
         }
     }
 }

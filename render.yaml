@@ -17,7 +17,7 @@ services:
     repo: https://github.com/Ghaythhezami/projetDev2026
     branch: adjusted-backend
     plan: free
-    dockerfilePath: ./Poulina.TraceServer.Api/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /swagger/v1/swagger.json
     envVars:

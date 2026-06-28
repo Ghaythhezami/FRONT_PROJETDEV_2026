@@ -28,8 +28,10 @@ Repo: [Ghaythhezami/projetDev2026](https://github.com/Ghaythhezami/projetDev2026
 
 1. **New → Web Service** → connect repo, branch **`adjusted-backend`**.
 2. **Environment**: Docker  
-   **Dockerfile path**: `Poulina.TraceServer.Api/Dockerfile`  
+   **Dockerfile path**: `Dockerfile` (repo root)  
    **Docker context**: `.` (repo root)
+
+   Alternative path also works: `Poulina.TraceServer.Api/Dockerfile` with context `.`
 3. Create a **PostgreSQL** database on Render and set:
 
 ```

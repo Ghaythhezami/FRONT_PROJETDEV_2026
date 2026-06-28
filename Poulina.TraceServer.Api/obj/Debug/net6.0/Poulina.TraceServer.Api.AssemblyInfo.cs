@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("AGILE AI Backend API")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+624ed035001c7ff24ac9628921693dfd4992da20")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f6490d2875fa6d430922bd788d727467949c5977")]
 [assembly: System.Reflection.AssemblyProductAttribute("AGILE AI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgileAi.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
