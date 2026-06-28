@@ -70,6 +70,10 @@ export class BoardSignalrService {
         .withUrl(`${API_BASE_URL}/hubs/board`, {
           accessTokenFactory: () => this.accessToken ?? '',
           withCredentials: true,
+          transport:
+            signalR.HttpTransportType.WebSockets |
+            signalR.HttpTransportType.ServerSentEvents |
+            signalR.HttpTransportType.LongPolling,
         })
         .withAutomaticReconnect([0, 2000, 10000, 30000])
         .configureLogging(signalR.LogLevel.Warning)
