@@ -18,7 +18,18 @@ export const guestGuard: CanActivateFn = () => {
   const router = inject(Router);
 
   if (authService.hasValidSession()) {
-    return router.createUrlTree(['/']);
+    return router.createUrlTree(['/dashboard']);
+  }
+
+  return true;
+};
+
+export const landingGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.hasValidSession()) {
+    return router.createUrlTree(['/dashboard']);
   }
 
   return true;

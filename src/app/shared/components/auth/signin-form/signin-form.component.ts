@@ -73,7 +73,7 @@ export class SigninFormComponent {
       .pipe(finalize(() => (this.isLoading = false)))
       .subscribe({
         next: () => {
-          const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/';
+          const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
           this.authService.bootstrapRealtimeServices();
           void this.router.navigateByUrl(returnUrl, { replaceUrl: true });
         },

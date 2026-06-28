@@ -1,0 +1,125 @@
+<div class="landing-root relative min-h-screen overflow-x-hidden bg-[#0a0a0f] text-white">
+  <!-- Animated background -->
+  <div class="landing-bg pointer-events-none fixed inset-0 -z-10">
+    <div class="landing-orb landing-orb-1"></div>
+    <div class="landing-orb landing-orb-2"></div>
+    <div class="landing-orb landing-orb-3"></div>
+    <div class="landing-grid"></div>
+    <div class="landing-noise"></div>
+  </div>
+
+  <!-- Nav -->
+  <header class="landing-fade-in relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-6 lg:px-8">
+    <a routerLink="/" class="flex items-center gap-3">
+      <img src="/images/logo/logo-icon.svg" alt="Agile AI" class="h-9 w-9 rounded-lg" />
+      <span class="text-lg font-semibold tracking-tight">Agile<span class="text-brand-400">AI</span></span>
+    </a>
+    <div class="flex items-center gap-3">
+      <app-theme-toggle-two />
+      <a routerLink="/signin" class="hidden text-sm text-white/70 hover:text-white sm:inline">Sign in</a>
+      <a routerLink="/signin" class="landing-cta-sm rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-brand-500/25 transition hover:bg-brand-400">
+        Get started
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative z-10 mx-auto max-w-6xl px-6 pb-20 pt-10 text-center lg:px-8 lg:pt-16">
+    <div class="landing-badge mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-white/70 backdrop-blur-md">
+      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+      AI-powered agile delivery platform
+    </div>
+
+    <h1 class="landing-hero-title mx-auto max-w-4xl text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-7xl">
+      <span class="block text-white/90">Ship faster with</span>
+      <span class="landing-gradient-text mt-2 block">intelligent sprint delivery</span>
+    </h1>
+
+    <p class="landing-fade-in-delay mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/60 sm:text-lg">
+      Plan sprints, manage backlogs, run kanban boards, and get AI insights — all in one workspace built for modern product teams.
+    </p>
+
+    <div class="landing-fade-in-delay-2 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+      <a routerLink="/signin" class="landing-cta group relative inline-flex items-center gap-2 rounded-xl bg-brand-500 px-8 py-3.5 text-base font-semibold text-white shadow-xl shadow-brand-600/30 transition hover:bg-brand-400">
+        Start building
+        <svg class="h-4 w-4 transition group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </a>
+      <a routerLink="/signup" class="rounded-xl border border-white/15 bg-white/5 px-8 py-3.5 text-base font-medium text-white/90 backdrop-blur-sm transition hover:bg-white/10">
+        Create account
+      </a>
+    </div>
+
+    <!-- Floating preview card -->
+    <div class="landing-float-card relative mx-auto mt-16 max-w-4xl">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-1 shadow-2xl shadow-brand-900/40 backdrop-blur-xl">
+        <div class="rounded-xl bg-gray-950/80 p-4 sm:p-6">
+          <div class="flex items-center gap-2 border-b border-white/10 pb-4">
+            <div class="h-3 w-3 rounded-full bg-red-400/80"></div>
+            <div class="h-3 w-3 rounded-full bg-amber-400/80"></div>
+            <div class="h-3 w-3 rounded-full bg-emerald-400/80"></div>
+            <span class="ml-2 text-xs text-white/40">Sprint board — live</span>
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            @for (col of ['To do', 'In progress', 'Review', 'Done']; track col) {
+              <div class="rounded-lg border border-white/5 bg-white/[0.03] p-3">
+                <p class="text-[10px] font-medium uppercase tracking-wider text-white/40">{{ col }}</p>
+                <div class="mt-2 space-y-2">
+                  <div class="landing-card-pulse rounded-md border border-brand-500/20 bg-brand-500/10 px-2 py-2 text-xs text-white/80">Auth flow</div>
+                  @if (col !== 'Done') {
+                    <div class="rounded-md border border-white/5 bg-white/5 px-2 py-2 text-xs text-white/50">Kanban card</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section class="relative z-10 mx-auto max-w-6xl px-6 py-16 lg:px-8">
+    <div class="text-center">
+      <h2 class="text-2xl font-bold sm:text-3xl">Everything your team needs</h2>
+      <p class="mt-3 text-white/50">From backlog grooming to release — one connected platform.</p>
+    </div>
+    <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      @for (service of services; track service.title; let i = $index) {
+        <div class="landing-service-card group rounded-2xl border border-white/8 bg-white/[0.03] p-6 backdrop-blur-sm transition hover:border-brand-500/30 hover:bg-brand-500/5" [style.animation-delay]="`${i * 80}ms`">
+          <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/15 text-brand-400 ring-1 ring-brand-500/20 transition group-hover:scale-110 group-hover:bg-brand-500/25">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-white/90">{{ service.title }}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-white/50">{{ service.desc }}</p>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Stats strip -->
+  <section class="relative z-10 border-y border-white/5 bg-white/[0.02]">
+    <div class="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-6 py-12 text-center sm:grid-cols-4 lg:px-8">
+      @for (stat of [{v:'10+',l:'Projects'}, {v:'Real-time',l:'SignalR sync'}, {v:'AI',l:'Smart insights'}, {v:'24/7',l:'Cloud ready'}]; track stat.l) {
+        <div>
+          <p class="text-2xl font-bold text-brand-400 sm:text-3xl">{{ stat.v }}</p>
+          <p class="mt-1 text-sm text-white/40">{{ stat.l }}</p>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="relative z-10 mx-auto max-w-6xl px-6 py-24 text-center lg:px-8">
+    <h2 class="text-3xl font-bold sm:text-4xl">Ready to transform your delivery?</h2>
+    <p class="mx-auto mt-4 max-w-xl text-white/50">Join your team on Agile AI — sign in and open your sprint board in seconds.</p>
+    <a routerLink="/signin" class="landing-cta mt-8 inline-flex rounded-xl bg-brand-500 px-10 py-4 text-base font-semibold text-white shadow-xl shadow-brand-600/30 transition hover:bg-brand-400">
+      Go to login
+    </a>
+  </section>
+
+  <footer class="relative z-10 border-t border-white/5 py-8 text-center text-xs text-white/30">
+  Agile AI — Intelligent agile workspace
+  </footer>
+</div>
