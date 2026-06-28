@@ -48,6 +48,7 @@ export interface Project {
   memberCount?: number;
   activeSprintName?: string;
   defaultEpicId?: string;
+  openIssueCount?: number;
 }
 
 export interface Epic {
@@ -79,6 +80,11 @@ export interface UserStory {
   projectId?: string;
 }
 
+export interface IssueAssignee {
+  userId: string;
+  name: string;
+}
+
 export interface Issue {
   id: string;
   title: string;
@@ -88,11 +94,18 @@ export interface Issue {
   assigneeId?: string | null;
   assigneeName?: string;
   assigneeAvatar?: string;
+  assignees?: IssueAssignee[];
   sprintId?: string;
+  projectId?: string;
+  projectName?: string;
+  projectKey?: string;
+  sprintName?: string;
   description?: string;
   priority?: ItemPriority | number;
   commentCount?: number;
   attachmentCount?: number;
+  subtaskCount?: number;
+  completedSubtaskCount?: number;
   progressPercent?: number;
 }
 
@@ -105,6 +118,7 @@ export interface BoardColumn {
 export interface SprintBoard {
   sprintId: string;
   sprintName: string;
+  projectId?: string;
   columns: BoardColumn[];
 }
 
@@ -129,6 +143,7 @@ export interface Comment {
   id: string;
   content: string;
   issueId: string;
+  authorId?: string;
   authorName?: string;
   createdAt?: string;
 }
@@ -137,7 +152,10 @@ export interface Attachment {
   id: string;
   fileName: string;
   url?: string;
+  fileType?: string;
   issueId: string;
+  uploaderId?: string;
+  uploaderName?: string;
   uploadedAt?: string;
   sizeBytes?: number;
 }
@@ -152,6 +170,24 @@ export interface SubTask {
 export interface DashboardProjectSummary extends Project {
   openIssues?: number;
   sprintProgress?: number;
+}
+
+export interface HomeDashboardStats {
+  myOpenTasks: number;
+  myDoneTasks: number;
+  reviewFailures: number;
+  contributorCount: number;
+  contributorNames: string[];
+  sprintContributions: { developerName: string; totalTasks: number; doneTasks: number }[];
+  recentTasks: { issueId: string; title: string; projectName: string; projectKey: string; status: number }[];
+  recentProjects: { projectId: string; projectName: string; key: string; activeSprintName?: string }[];
+  aiRecommendation: string;
+}
+
+export interface MyTaskProjectFilter {
+  projectId: string;
+  projectName: string;
+  key: string;
 }
 
 export interface BurndownPoint {

@@ -3,7 +3,6 @@ import { Component, ElementRef, QueryList, ViewChildren, ChangeDetectorRef, inje
 import { SidebarService } from '../../services/sidebar.service';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { SafeHtmlPipe } from '../../pipe/safe-html.pipe';
-import { SidebarWidgetComponent } from './app-sidebar-widget.component';
 import { combineLatest, Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
@@ -20,8 +19,7 @@ type NavItem = {
   imports: [
     CommonModule,
     RouterModule,
-    SafeHtmlPipe,
-    SidebarWidgetComponent
+    SafeHtmlPipe
   ],
   templateUrl: './app-sidebar.component.html',
 })
@@ -72,12 +70,16 @@ export class AppSidebarComponent {
   readonly isExpanded$;
   readonly isMobileOpen$;
   readonly isHovered$;
+  readonly currentUser = this.authService.currentUser;
 
   private subscription: Subscription = new Subscription();
 
   get visibleNavItems(): NavItem[] {
     return this.navItems.filter((item) => {
       if (item.name === 'Notifications') {
+        return false;
+      }
+      if (item.name === 'Profile') {
         return false;
       }
       if (item.name === 'Parametrage' && !this.isAdmin) {
@@ -198,13 +200,14 @@ export class AppSidebarComponent {
   }
 
   onSubmenuClick() {
-    console.log('click submenu');
     this.isMobileOpen$.subscribe(isMobile => {
       if (isMobile) {
         this.sidebarService.setMobileOpen(false);
       }
     }).unsubscribe();
-  }  
+  }
 
-  
+  profileInitials(user: { prenom?: string; nom?: string }): string {
+    return ((user.prenom?.[0] ?? '') + (user.nom?.[0] ?? '')).toUpperCase() || 'U';
+  }
 }

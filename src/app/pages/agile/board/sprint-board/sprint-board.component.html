@@ -7,41 +7,19 @@
     <app-ui-alert [message]="errorMessage()" variant="error" />
   } @else {
     <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div>
+      <div class="min-w-0 flex-1">
         <p class="text-xs font-medium uppercase tracking-wide text-brand-600">Board view</p>
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white/90">
+        <h1 class="truncate text-2xl font-semibold text-gray-900 dark:text-white/90">
           {{ sprintName() || 'Sprint board' }}
         </h1>
-        <p class="text-sm text-gray-500">Drag cards between columns to update task status.</p>
+        <p class="text-sm text-gray-500">Drag cards between columns · add tasks directly in To Do.</p>
       </div>
     </div>
 
-    <app-ui-card title="Add task" subtitle="Create a new task in this sprint">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div class="flex-1">
-          <app-ui-form-select
-            label="User story"
-            [(ngModel)]="newIssueStoryId"
-            name="storyId"
-            [options]="storyOptions"
-          />
-        </div>
-        <div class="flex-1">
-          <app-ui-form-field
-            label="Task title"
-            placeholder="What needs to be done?"
-            [(ngModel)]="newIssueTitle"
-            name="issueTitle"
-          />
-        </div>
-        <app-ui-button (pressed)="createIssue()">Add task</app-ui-button>
-      </div>
-    </app-ui-card>
-
-    <div class="flex gap-4 overflow-x-auto pb-4">
+    <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
       @for (column of columns(); track column.status) {
         <div
-          class="min-w-[320px] flex-1 rounded-2xl p-3 transition-colors"
+          class="w-[85vw] shrink-0 snap-center rounded-2xl p-3 transition-colors sm:w-auto sm:min-w-[320px] sm:flex-1"
           [ngClass]="columnUi[column.status].columnBg"
           (dragover)="onDragOver($event)"
           (drop)="onDrop($event, column.status)"
@@ -54,13 +32,48 @@
                 {{ column.issues.length }}
               </span>
             </div>
+            @if (column.status === todoStatus) {
+              <button
+                type="button"
+                class="rounded-lg p-1 text-gray-500 hover:bg-white/70 hover:text-brand-600"
+                title="Add task to To Do"
+                (click)="toggleInlineCreate()"
+              >
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            }
           </div>
+
+          @if (column.status === todoStatus && showInlineCreate()) {
+            <div class="mb-3 rounded-xl border border-white/80 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-gray-900">
+              <app-ui-form-select
+                label="User story"
+                [(ngModel)]="newIssueStoryId"
+                name="inlineStoryId"
+                [options]="storyOptions"
+              />
+              <app-ui-form-field
+                className="mt-2"
+                label="Task title"
+                placeholder="What needs to be done?"
+                [(ngModel)]="newIssueTitle"
+                name="inlineIssueTitle"
+              />
+              <div class="mt-3 flex gap-2">
+                <app-ui-button size="sm" (pressed)="createIssue()">Add</app-ui-button>
+                <app-ui-button size="sm" variant="ghost" (pressed)="cancelInlineCreate()">Cancel</app-ui-button>
+              </div>
+            </div>
+          }
 
           <div class="min-h-[420px] space-y-3">
             @for (issue of column.issues; track issue.id) {
               <app-kanban-card
                 [issue]="issue"
                 [sprintId]="sprintId"
+                [projectId]="projectId()"
                 [dragging]="movingIssueId() === issue.id"
                 (dragStart)="onDragStart($event, issue)"
               />

@@ -6,6 +6,7 @@ import { PageBreadcrumbComponent } from '../../../../shared/components/common/pa
 import { LoadMoreFooterComponent } from '../../../../shared/components/data/load-more-footer/load-more-footer.component';
 import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
 import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-scroll.directive';
+import { FolderProjectCardComponent } from '../../../../shared/components/agile/folder-project-card/folder-project-card.component';
 import { Project } from '../../../../shared/models/domain.models';
 import { ProjectService } from '../../../../shared/services/project.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
@@ -31,11 +32,11 @@ import {
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
     AppModalComponent,
-    AppCardComponent,
     AppAlertComponent,
     UiButtonComponent,
     FormFieldComponent,
     FormTextareaComponent,
+    FolderProjectCardComponent,
   ],
   templateUrl: './project-list.component.html',
 })

@@ -6,7 +6,15 @@
     <div class="grid gap-6 lg:grid-cols-2">
       <app-ui-card title="Send notification" subtitle="Notify a team member">
         <form class="space-y-3" (ngSubmit)="sendNotification()">
-          <app-ui-form-field label="Receiver user ID" [(ngModel)]="sendForm.receiverId" name="receiverId" [required]="true" />
+          <app-infinite-select
+            label="Recipient"
+            placeholder="Search and select a user"
+            [options]="userSelectOptions()"
+            [loading]="userSelectLoading()"
+            [value]="sendForm.receiverId"
+            (valueChange)="sendForm.receiverId = $event"
+            (search)="loadUserOptions($event)"
+          />
           <app-ui-form-textarea label="Message" [(ngModel)]="sendForm.description" name="desc" />
           <app-ui-form-field label="Link (optional)" [(ngModel)]="sendForm.link" name="link" />
           <app-ui-button type="submit">Send</app-ui-button>
@@ -14,7 +22,15 @@
       </app-ui-card>
       <app-ui-card title="Test notification" subtitle="Send a test message">
         <form class="space-y-3" (ngSubmit)="sendTest()">
-          <app-ui-form-field label="Receiver user ID" [(ngModel)]="testForm.receiverId" name="testReceiver" [required]="true" />
+          <app-infinite-select
+            label="Recipient"
+            placeholder="Search and select a user"
+            [options]="userSelectOptions()"
+            [loading]="userSelectLoading()"
+            [value]="testForm.receiverId"
+            (valueChange)="testForm.receiverId = $event"
+            (search)="loadUserOptions($event)"
+          />
           <app-ui-form-textarea label="Description" [(ngModel)]="testForm.description" name="testDesc" />
           <app-ui-button type="submit" variant="outline">Send test</app-ui-button>
         </form>
@@ -28,7 +44,9 @@
         <li class="flex items-start justify-between gap-4 px-5 py-4" [class.opacity-60]="n.isRead">
           <div>
             <p class="text-sm">{{ n.message }}</p>
-            @if (n.link) { <a [href]="n.link" class="text-xs text-brand-600">{{ n.link }}</a> }
+            @if (n.link) {
+              <a [href]="n.link" class="text-xs text-brand-600">Open link</a>
+            }
             <p class="text-xs text-gray-500">{{ n.createdAt | date: 'medium' }}</p>
           </div>
           @if (!n.isRead) {

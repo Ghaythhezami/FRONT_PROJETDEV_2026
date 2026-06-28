@@ -5,7 +5,7 @@
     <div>
       <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Projects</h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Manage your agile workspaces with paginated search.
+        Open a workspace folder to manage sprints, backlog, and team activity.
       </p>
     </div>
     <app-ui-button (pressed)="openCreateModal()">New project</app-ui-button>
@@ -54,52 +54,38 @@
     </div>
   </app-ui-modal>
 
-  <app-ui-card title="All projects" [noPadding]="true">
-    <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
-      <app-search-toolbar
-        placeholder="Search projects…"
-        [total]="store.total()"
-        totalLabel="projects"
-        (searchChange)="onSearch($event)"
-      />
-    </div>
+  <div class="mb-4">
+    <app-search-toolbar
+      placeholder="Search projects…"
+      [total]="store.total()"
+      totalLabel="projects"
+      (searchChange)="onSearch($event)"
+    />
+  </div>
 
-    @if (store.loading() && !store.items().length) {
-      <div class="py-16 text-center text-sm text-gray-500">Loading…</div>
-    } @else if (store.error()) {
-      <div class="m-5">
-        <app-ui-alert [message]="store.error()!" variant="error" />
-      </div>
-    } @else {
-      <div class="divide-y divide-gray-100 dark:divide-white/[0.05]">
-        @for (project of store.items(); track project.id) {
-          <a
-            [routerLink]="['/projects', project.id]"
-            class="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.02]"
-          >
-            <div>
-              <span class="text-xs font-semibold uppercase text-brand-600">{{ project.key }}</span>
-              <h3 class="font-medium text-gray-800 dark:text-white/90">{{ project.projectName }}</h3>
-              <p class="text-sm text-gray-500 line-clamp-1">{{ project.projectDescription || '—' }}</p>
-            </div>
-            <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-        }
-      </div>
-      <div
-        appInfiniteScroll
-        [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
-        (appInfiniteScroll)="store.loadMore()"
-      ></div>
-      <app-load-more-footer
-        [loading]="store.loadingMore()"
-        [hasMore]="store.hasMore()"
-        [shown]="store.items().length"
-        [total]="store.total()"
-        (loadMore)="store.loadMore()"
-      />
-    }
-  </app-ui-card>
+  @if (store.loading() && !store.items().length) {
+    <div class="py-16 text-center text-sm text-gray-500">Loading projects…</div>
+  } @else if (store.error()) {
+    <app-ui-alert [message]="store.error()!" variant="error" />
+  } @else if (store.isEmpty()) {
+    <div class="py-16 text-center text-sm text-gray-500">No projects yet — create your first workspace.</div>
+  } @else {
+    <div class="grid min-w-0 max-w-full gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      @for (project of store.items(); track project.id) {
+        <app-folder-project-card [project]="project" />
+      }
+    </div>
+    <div
+      appInfiniteScroll
+      [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
+      (appInfiniteScroll)="store.loadMore()"
+    ></div>
+    <app-load-more-footer
+      [loading]="store.loadingMore()"
+      [hasMore]="store.hasMore()"
+      [shown]="store.items().length"
+      [total]="store.total()"
+      (loadMore)="store.loadMore()"
+    />
+  }
 </div>

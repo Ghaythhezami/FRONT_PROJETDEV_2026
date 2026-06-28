@@ -5,10 +5,15 @@ import { UserManagementService } from '../../../../shared/services/user-manageme
 import { RegisterUserDto, UpdateUserDto } from '../../../../shared/services/user-management.models';
 import { UserFormComponent } from '../user-form/user-form.component';
 import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
-import { LoadMoreFooterComponent } from '../../../../shared/components/data/load-more-footer/load-more-footer.component';
-import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-scroll.directive';
+import { TablePaginationComponent } from '../../../../shared/components/data/table-pagination/table-pagination.component';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
+import {
+  AppModalComponent,
+  UiButtonComponent,
+} from '../../../../shared/ui';
+
+const USERS_PAGE_SIZE = 5;
 
 @Component({
   selector: 'app-user-list',
@@ -16,17 +21,19 @@ import { PageBreadcrumbComponent } from '../../../../shared/components/common/pa
     CommonModule,
     UserFormComponent,
     SearchToolbarComponent,
-    LoadMoreFooterComponent,
-    InfiniteScrollDirective,
+    TablePaginationComponent,
     PageBreadcrumbComponent,
+    AppModalComponent,
+    UiButtonComponent,
   ],
   templateUrl: './user-list.component.html',
 })
 export class UserListComponent implements OnInit {
   private readonly userManagementService = inject(UserManagementService);
 
-  readonly store = new PaginatedListStore<AuthUser>((query) =>
-    this.userManagementService.getUsersPaged(query),
+  readonly store = new PaginatedListStore<AuthUser>(
+    (query) => this.userManagementService.getUsersPaged(query),
+    USERS_PAGE_SIZE,
   );
 
   selectedUser: AuthUser | null = null;
@@ -40,6 +47,10 @@ export class UserListComponent implements OnInit {
 
   onSearch(term: string): void {
     this.store.setSearch(term);
+  }
+
+  onPageChange(page: number): void {
+    this.store.goToPage(page);
   }
 
   openCreateForm(): void {
@@ -58,6 +69,10 @@ export class UserListComponent implements OnInit {
     this.showForm = false;
     this.selectedUser = null;
     this.formErrorMessage = '';
+  }
+
+  get modalTitle(): string {
+    return this.selectedUser ? 'Edit user' : 'Add user';
   }
 
   createUser(user: RegisterUserDto): void {
@@ -92,7 +107,7 @@ export class UserListComponent implements OnInit {
         this.formErrorMessage =
           error?.error?.message ??
           error?.message ??
-          'Unable to update user. Please confirm the backend exposes a user update endpoint.';
+          'Unable to update user.';
         this.isSaving = false;
       },
     });

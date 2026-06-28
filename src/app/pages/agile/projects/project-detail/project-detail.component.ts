@@ -26,7 +26,8 @@ import { ProjectService } from '../../../../shared/services/project.service';
 import { SprintService, CreateSprintPayload } from '../../../../shared/services/sprint.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
 import { AuthService } from '../../../../shared/services/auth.service';
-import { InfiniteSelectComponent, SelectOption } from '../../../../shared/components/data/infinite-select/infinite-select.component';
+import { InfiniteMultiSelectComponent } from '../../../../shared/components/data/infinite-multi-select/infinite-multi-select.component';
+import { SelectOption } from '../../../../shared/components/data/infinite-select/infinite-select.component';
 import { UserDirectoryService } from '../../../../shared/services/user-directory.service';
 import { isUuid } from '../../../../shared/utils/id.util';
 import {
@@ -36,6 +37,7 @@ import {
   sprintStatusLabel,
 } from '../../../../shared/utils/sprint-status.util';
 import { extractApiErrorMessage } from '../../../../shared/utils/api-error.util';
+import { map } from 'rxjs';
 import {
   AppAlertComponent,
   AppCardComponent,
@@ -46,7 +48,13 @@ import {
   UiButtonComponent,
 } from '../../../../shared/ui';
 
-type Tab = 'overview' | 'sprints' | 'members' | 'activity' | 'ai';
+type Tab = 'overview' | 'sprints' | 'members' | 'activity';
+
+interface ProjectTab {
+  id: Tab;
+  label: string;
+  icon: string;
+}
 
 @Component({
   selector: 'app-project-detail',
@@ -59,7 +67,7 @@ type Tab = 'overview' | 'sprints' | 'members' | 'activity' | 'ai';
     SearchToolbarComponent,
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
-    InfiniteSelectComponent,
+    InfiniteMultiSelectComponent,
     AppCardComponent,
     AppAlertComponent,
     AppModalComponent,
@@ -104,11 +112,26 @@ export class ProjectDetailComponent implements OnInit {
   isCreatingSprint = signal(false);
 
   projectId = '';
-  newMemberId = '';
+  newMemberIds: string[] = [];
   memberActionError = signal('');
   userSelectOptions = signal<SelectOption[]>([]);
   userSelectLoading = signal(false);
   userDirectoryHint = signal('');
+
+  readonly userPickerStore = new PaginatedListStore<{ userId: string; prenom: string; nom: string; email: string }>(
+    (query) =>
+      this.userDirectory.searchUsers(query).pipe(
+        map((result) => ({
+          ...result,
+          items: result.items.map((u) => ({
+            userId: u.userId,
+            prenom: u.prenom,
+            nom: u.nom,
+            email: u.email,
+          })),
+        })),
+      ),
+  );
 
   newSprint: CreateSprintPayload = {
     Name: '',
@@ -150,8 +173,8 @@ export class ProjectDetailComponent implements OnInit {
       if (!this.memberStore.items().length) {
         this.memberStore.loadFirst();
       }
-      if (!this.userSelectOptions().length && !this.userSelectLoading()) {
-        this.loadUserOptions('');
+      if (!this.userSelectOptions().length && !this.userPickerStore.loading()) {
+        this.onUserSearch('');
       }
     }
     if (tab === 'activity' && !this.activityStore.items().length) {
@@ -206,6 +229,13 @@ export class ProjectDetailComponent implements OnInit {
   readonly canCloseSprint = canCloseSprint;
   readonly isSprintClosed = isSprintClosed;
   readonly sprintStatusLabel = sprintStatusLabel;
+
+  readonly projectTabs: ProjectTab[] = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'sprints', label: 'Sprints', icon: '🏃' },
+    { id: 'members', label: 'Team', icon: '👥' },
+    { id: 'activity', label: 'Activity', icon: '⚡' },
+  ];
 
   startSprint(sprint: Sprint, event: Event): void {
     event.preventDefault();
@@ -279,23 +309,36 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   addMember(): void {
-    const userId = this.newMemberId.trim();
-    if (!userId) {
+    const ids = this.newMemberIds.filter((id) => id.trim());
+    if (!ids.length) {
       return;
     }
-    if (!isUuid(userId)) {
-      this.memberActionError.set('Select a user from the list.');
+    if (ids.some((id) => !isUuid(id))) {
+      this.memberActionError.set('Select users from the list.');
       return;
     }
     this.memberActionError.set('');
-    this.memberService.add(this.projectId, userId).subscribe({
-      next: () => {
-        this.newMemberId = '';
-        this.memberStore.loadFirst();
-        this.toast.success('Member added to project.');
-      },
-      error: (e) =>
-        this.memberActionError.set(e?.error?.message ?? e?.message ?? 'Could not add member.'),
+    let pending = ids.length;
+    let added = 0;
+    ids.forEach((userId) => {
+      this.memberService.add(this.projectId, userId).subscribe({
+        next: () => {
+          added += 1;
+          pending -= 1;
+          if (pending === 0) {
+            this.newMemberIds = [];
+            this.memberStore.loadFirst();
+            this.syncUserSelectOptions();
+            this.toast.success(
+              added === 1 ? 'Member added to project.' : `${added} members added to project.`,
+            );
+          }
+        },
+        error: (e) => {
+          pending -= 1;
+          this.memberActionError.set(e?.error?.message ?? e?.message ?? 'Could not add member.');
+        },
+      });
     });
   }
 
@@ -305,7 +348,7 @@ export class ProjectDetailComponent implements OnInit {
       this.memberActionError.set('Sign in to add yourself to the project.');
       return;
     }
-    this.newMemberId = userId;
+    this.newMemberIds = [userId];
     this.addMember();
   }
 
@@ -327,26 +370,48 @@ export class ProjectDetailComponent implements OnInit {
     });
   }
 
-  loadUserOptions(search: string): void {
+  onUserSearch(search: string): void {
     this.userSelectLoading.set(true);
     this.userDirectoryHint.set(
       this.authService.isAdmin()
         ? 'Search users by name or email.'
         : 'Search team members to add to this project.',
     );
-    this.userDirectory.searchUsers({ page: 1, limit: 10, search }).subscribe({
-      next: (result) => {
-        this.userSelectOptions.set(
-          result.items.map((u) => ({
-            value: u.userId,
-            label: `${u.prenom} ${u.nom}`.trim() || u.email || u.userId,
-            sublabel: u.email,
-          })),
-        );
-        this.userSelectLoading.set(false);
-      },
-      error: () => this.userSelectLoading.set(false),
+    this.userPickerStore.loadFirst(search);
+    this.waitForUserPicker(() => {
+      this.syncUserSelectOptions();
+      this.userSelectLoading.set(false);
     });
+  }
+
+  onUserLoadMore(): void {
+    this.userPickerStore.loadMore();
+    this.waitForUserPicker(() => this.syncUserSelectOptions());
+  }
+
+  private waitForUserPicker(done: () => void): void {
+    const poll = () => {
+      if (this.userPickerStore.loading() || this.userPickerStore.loadingMore()) {
+        requestAnimationFrame(poll);
+        return;
+      }
+      done();
+    };
+    requestAnimationFrame(poll);
+  }
+
+  private syncUserSelectOptions(): void {
+    const existing = new Set(this.memberStore.items().map((m) => m.memberId));
+    this.userSelectOptions.set(
+      this.userPickerStore
+        .items()
+        .filter((u) => !existing.has(u.userId))
+        .map((u) => ({
+          value: u.userId,
+          label: `${u.prenom} ${u.nom}`.trim() || u.email || u.userId,
+          sublabel: u.email,
+        })),
+    );
   }
 
   runAi(action: 'standup' | 'release' | 'risk'): void {

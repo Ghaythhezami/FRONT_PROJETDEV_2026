@@ -24,7 +24,6 @@ import {
 } from '../../../../shared/models/domain.models';
 import {
   AppAlertComponent,
-  AppCardComponent,
   FormFieldComponent,
   FormSelectComponent,
   SelectOption,
@@ -41,7 +40,6 @@ import {
     RouterModule,
     PageBreadcrumbComponent,
     KanbanCardComponent,
-    AppCardComponent,
     AppAlertComponent,
     UiButtonComponent,
     FormFieldComponent,
@@ -68,12 +66,15 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
   isLoading = signal(true);
   errorMessage = signal('');
   movingIssueId = signal<string | null>(null);
+  showInlineCreate = signal(false);
+  projectId = signal('');
 
   newIssueTitle = '';
   newIssueStoryId = '';
 
   readonly boardColumns = KANBAN_COLUMNS;
   readonly columnUi = KANBAN_COLUMN_UI;
+  readonly todoStatus = ItemStatus.Todo;
 
   get storyOptions(): SelectOption[] {
     return [
@@ -116,6 +117,9 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
     this.dashboardService.getSprintBoard(this.sprintId).subscribe({
       next: (board) => {
         this.sprintName.set(board.sprintName);
+        if (board.projectId) {
+          this.projectId.set(board.projectId);
+        }
         const columnMap = new Map(board.columns.map((c) => [c.status, c.issues]));
         this.columns.set(
           KANBAN_COLUMNS.map((status) => ({
@@ -146,6 +150,18 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleInlineCreate(): void {
+    this.showInlineCreate.update((v) => !v);
+    if (this.showInlineCreate() && !this.newIssueStoryId && this.sprintStories().length) {
+      this.newIssueStoryId = this.sprintStories()[0].id;
+    }
+  }
+
+  cancelInlineCreate(): void {
+    this.showInlineCreate.set(false);
+    this.newIssueTitle = '';
+  }
+
   createIssue(): void {
     if (!this.newIssueTitle.trim() || !this.newIssueStoryId) {
       this.toast.warning('Select a user story and enter a task title.');
@@ -160,6 +176,7 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (created) => {
           this.newIssueTitle = '';
+          this.showInlineCreate.set(false);
           this.toast.success('Task created.');
           this.applyLocalMove(created.id, Number(created.status) as ItemStatus, created);
         },

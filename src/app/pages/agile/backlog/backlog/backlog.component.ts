@@ -155,11 +155,12 @@ export class BacklogComponent implements OnInit {
     }
     this.isEpicSaving.set(true);
     this.epicService.create(this.projectId, this.newEpic.title.trim(), this.newEpic.description.trim()).subscribe({
-      next: () => {
+      next: (epic) => {
         this.isEpicSaving.set(false);
         this.showEpicModal.set(false);
-        this.loadEpics();
-        this.toast.success('Epic created.');
+        this.epics.update((list) => [epic, ...list.filter((e) => e.id !== epic.id)]);
+        this.newStory.epicId = epic.id;
+        this.toast.success(`Epic "${epic.title}" created — select it when adding stories.`);
       },
       error: (e) => {
         this.isEpicSaving.set(false);
@@ -178,6 +179,7 @@ export class BacklogComponent implements OnInit {
     this.formError.set('');
 
     const createWithEpic = (epicId: string) => {
+      const sprintId = this.newStory.sprintId || undefined;
       this.userStoryService
         .create({
           Title: this.newStory.title.trim(),
@@ -186,18 +188,23 @@ export class BacklogComponent implements OnInit {
           Priority: this.newStory.priority,
           MoSCoW: this.newStory.moSCoW,
           EpicId: epicId,
-          SprintId: this.newStory.sprintId || undefined,
+          SprintId: sprintId,
           Status: this.newStory.status,
         })
         .subscribe({
-          next: () => {
+          next: (story) => {
             this.isSaving.set(false);
             this.newStory.title = '';
             this.newStory.description = '';
             this.newStory.sprintId = '';
             this.showStoryModal.set(false);
-            this.store.loadFirst();
-            this.toast.success('User story created.');
+            if (sprintId) {
+              const sprintName = this.sprints().find((s) => s.id === sprintId)?.name ?? 'sprint';
+              this.toast.success(`Story added to ${sprintName}. Open the sprint board to see it.`);
+            } else {
+              this.store.loadFirst();
+              this.toast.success(`Story "${story.title}" added to backlog.`);
+            }
           },
           error: (error) => {
             this.isSaving.set(false);

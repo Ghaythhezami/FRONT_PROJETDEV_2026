@@ -76,6 +76,23 @@ export class PaginatedListStore<T> {
     this.loadFirst(undefined, filters);
   }
 
+  /** Replace current page (for table pagination — does not append). */
+  goToPage(page: number): void {
+    if (page < 1 || this.loadingSignal()) {
+      return;
+    }
+    this.pageSignal.set(page);
+    this.fetchPage(true);
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.totalSignal() / this.defaultLimit));
+  }
+
+  get pageLimit(): number {
+    return this.defaultLimit;
+  }
+
   reset(): void {
     this.itemsSignal.set([]);
     this.pageSignal.set(1);

@@ -105,6 +105,7 @@ export class InfiniteSelectComponent implements OnInit, OnChanges {
   @Input() options: SelectOption[] = [];
   @Input() loading = false;
   @Input() hasMore = false;
+  @Input() debounceMs = 400;
 
   @Output() valueChange = new EventEmitter<string>();
   @Output() search = new EventEmitter<string>();
@@ -113,6 +114,7 @@ export class InfiniteSelectComponent implements OnInit, OnChanges {
   isOpen = false;
   searchTerm = '';
   selectedLabel = '';
+  private debounceTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.syncLabel();
@@ -138,7 +140,8 @@ export class InfiniteSelectComponent implements OnInit, OnChanges {
   }
 
   onSearch(term: string): void {
-    this.search.emit(term);
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => this.search.emit(term), this.debounceMs);
   }
 
   select(option: SelectOption): void {

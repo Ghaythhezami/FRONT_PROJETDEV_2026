@@ -6,6 +6,7 @@ import {
   ActiveSprintSummary,
   BurndownPoint,
   DashboardProjectSummary,
+  HomeDashboardStats,
   Issue,
   SprintBoard,
   TeamWorkloadMember,
@@ -36,6 +37,43 @@ export class DashboardService {
     private readonly paginatedApi: PaginatedApiService,
   ) {}
 
+  getHomeStats(): Observable<HomeDashboardStats> {
+    return this.http.get<Record<string, unknown>>(`${this.base}/home-stats`).pipe(
+      map((raw) => ({
+        myOpenTasks: Number(raw['myOpenTasks'] ?? raw['MyOpenTasks'] ?? 0),
+        myDoneTasks: Number(raw['myDoneTasks'] ?? raw['MyDoneTasks'] ?? 0),
+        reviewFailures: Number(raw['reviewFailures'] ?? raw['ReviewFailures'] ?? 0),
+        contributorCount: Number(raw['contributorCount'] ?? raw['ContributorCount'] ?? 0),
+        contributorNames: ((raw['contributorNames'] ?? raw['ContributorNames'] ?? []) as string[]),
+        sprintContributions: ((raw['sprintContributions'] ?? raw['SprintContributions'] ?? []) as Record<string, unknown>[]).map(
+          (item) => ({
+            developerName: String(item['developerName'] ?? item['DeveloperName'] ?? ''),
+            totalTasks: Number(item['totalTasks'] ?? item['TotalTasks'] ?? 0),
+            doneTasks: Number(item['doneTasks'] ?? item['DoneTasks'] ?? 0),
+          }),
+        ),
+        recentTasks: ((raw['recentTasks'] ?? raw['RecentTasks'] ?? []) as Record<string, unknown>[]).map(
+          (item) => ({
+            issueId: String(item['issueId'] ?? item['IssueId'] ?? ''),
+            title: String(item['title'] ?? item['Title'] ?? ''),
+            projectName: String(item['projectName'] ?? item['ProjectName'] ?? ''),
+            projectKey: String(item['projectKey'] ?? item['ProjectKey'] ?? ''),
+            status: Number(item['status'] ?? item['Status'] ?? 0),
+          }),
+        ),
+        recentProjects: ((raw['recentProjects'] ?? raw['RecentProjects'] ?? []) as Record<string, unknown>[]).map(
+          (item) => ({
+            projectId: String(item['projectId'] ?? item['ProjectId'] ?? ''),
+            projectName: String(item['projectName'] ?? item['ProjectName'] ?? ''),
+            key: String(item['key'] ?? item['Key'] ?? ''),
+            activeSprintName: String(item['activeSprintName'] ?? item['ActiveSprintName'] ?? ''),
+          }),
+        ),
+        aiRecommendation: String(raw['aiRecommendation'] ?? raw['AiRecommendation'] ?? ''),
+      })),
+    );
+  }
+
   getMyProjects(query: PaginationQuery): Observable<PagedResult<DashboardProjectSummary>> {
     return fetchServerPagedList(
       this.http,
@@ -47,7 +85,13 @@ export class DashboardService {
 
   getActiveSprint(projectId: string): Observable<ActiveSprintSummary | null> {
     return this.http.get<unknown>(`${this.base}/active-sprint/${projectId}`).pipe(
-      map((body) => normalizeActiveSprintSummary(body as Raw)),
+      map((body) => {
+        if (body == null || typeof body !== 'object') {
+          return null;
+        }
+        const summary = normalizeActiveSprintSummary(body as Raw);
+        return summary.sprintId ? summary : null;
+      }),
       catchError((error) => (error?.status === 404 ? of(null) : throwError(() => error))),
     );
   }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
@@ -18,13 +18,20 @@ import { AiService } from '../../../../shared/services/ai.service';
 import { AttachmentService } from '../../../../shared/services/attachment.service';
 import { CommentService } from '../../../../shared/services/comment.service';
 import { IssueService } from '../../../../shared/services/issue.service';
+import { ProjectMemberService } from '../../../../shared/services/project-member.service';
 import { SubtaskService } from '../../../../shared/services/subtask.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
+import {
+  InfiniteSelectComponent,
+  SelectOption,
+} from '../../../../shared/components/data/infinite-select/infinite-select.component';
+import { ProjectMember } from '../../../../shared/models/domain.models';
 import {
   canTransitionIssue,
   issueTransitionError,
 } from '../../../../shared/utils/issue-workflow.util';
 import { extractApiErrorMessage } from '../../../../shared/utils/api-error.util';
+import { AuthService } from '../../../../shared/services/auth.service';
 import {
   AppAlertComponent,
   AppCardComponent,
@@ -49,6 +56,7 @@ import {
     UiButtonComponent,
     FormFieldComponent,
     FormTextareaComponent,
+    InfiniteSelectComponent,
   ],
   templateUrl: './issue-detail.component.html',
 })
@@ -58,17 +66,31 @@ export class IssueDetailComponent implements OnInit {
   private readonly commentService = inject(CommentService);
   private readonly attachmentService = inject(AttachmentService);
   private readonly subtaskService = inject(SubtaskService);
+  private readonly memberService = inject(ProjectMemberService);
   private readonly aiService = inject(AiService);
   private readonly toast = inject(ToastService);
+  readonly authService = inject(AuthService);
 
   issueId = '';
   issue = signal<Issue | null>(null);
   errorMessage = signal('');
   isSaving = signal(false);
+  isAssigning = signal(false);
   newComment = '';
   newSubtaskTitle = '';
   aiSubtasks = signal('');
   isAiLoading = signal(false);
+  commentFileUploading = signal(false);
+  commentPreviewUrl = signal<string | null>(null);
+  pendingAttachmentUploads = signal<
+    { id: string; previewUrl?: string; fileName: string; loading: boolean; uploaderName: string; url?: string; isImage: boolean }[]
+  >([]);
+  assigneePickerProjectId = signal('');
+  assigneeSelectOptions = signal<SelectOption[]>([]);
+  assigneeSelectLoading = signal(false);
+  selectedAssigneeId = '';
+
+  private assigneePickerStore: PaginatedListStore<ProjectMember> | null = null;
 
   readonly statusLabels = ITEM_STATUS_LABELS;
   readonly statusColors = ITEM_STATUS_COLORS;
@@ -90,6 +112,86 @@ export class IssueDetailComponent implements OnInit {
 
   subtasks = signal<SubTask[]>([]);
 
+  readonly assigneePickerHasMore = computed(
+    () => this.assigneePickerStore?.hasMore() ?? false,
+  );
+
+  readonly isAdmin = computed(() => this.authService.isAdmin());
+  readonly currentUserId = computed(() => this.authService.currentUser()?.userId ?? '');
+  readonly isAssignedToMe = computed(() => {
+    const iss = this.issue();
+    const uid = this.currentUserId();
+    return !!iss?.assigneeId && iss.assigneeId === uid;
+  });
+
+  commentAuthorName(comment: Comment): string {
+    if (comment.authorName?.trim()) {
+      return comment.authorName.trim();
+    }
+    const user = this.authService.currentUser();
+    if (user && comment.authorId && comment.authorId === user.userId) {
+      return `${user.prenom} ${user.nom}`.trim() || user.email;
+    }
+    return user ? `${user.prenom} ${user.nom}`.trim() || 'You' : 'Unknown';
+  }
+
+  commentPlainText(content: string): string {
+    return content
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+      .replace(/📎\s*\[[^\]]+\]\([^)]+\)/g, '')
+      .trim();
+  }
+
+  commentImageUrl(content: string): string | null {
+    const match = content.match(/!\[[^\]]*\]\(([^)]+)\)/);
+    return match?.[1] ?? null;
+  }
+
+  isImageAttachment(attachment: Attachment): boolean {
+    const type = attachment.fileType ?? '';
+    return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(attachment.fileName);
+  }
+
+  assignMe(): void {
+    const current = this.issue();
+    if (!current) {
+      return;
+    }
+    this.isAssigning.set(true);
+    this.issueService.assignMe(current.id).subscribe({
+      next: (updated) => {
+        this.issue.set(updated);
+        this.selectedAssigneeId = updated.assigneeId ?? '';
+        this.isAssigning.set(false);
+        this.toast.success('You are now assigned to this task.');
+      },
+      error: (e) => {
+        this.isAssigning.set(false);
+        this.toast.error(extractApiErrorMessage(e, 'Could not assign yourself.'));
+      },
+    });
+  }
+
+  unassignMe(): void {
+    const current = this.issue();
+    if (!current) {
+      return;
+    }
+    this.isAssigning.set(true);
+    this.issueService.unassignMe(current.id).subscribe({
+      next: (updated) => {
+        this.issue.set(updated);
+        this.selectedAssigneeId = '';
+        this.isAssigning.set(false);
+        this.toast.success('You were unassigned from this task.');
+      },
+      error: (e) => {
+        this.isAssigning.set(false);
+        this.toast.error(extractApiErrorMessage(e, 'Could not unassign.'));
+      },
+    });
+  }
+
   ngOnInit(): void {
     this.issueId = this.route.snapshot.paramMap.get('issueId') ?? '';
     const stateIssue = history.state?.['issue'] as Issue | undefined;
@@ -97,9 +199,7 @@ export class IssueDetailComponent implements OnInit {
 
     if (stateIssue?.id) {
       this.issue.set(stateIssue);
-      this.loadSubtasks();
-      this.commentStore.loadFirst();
-      this.attachmentStore.loadFirst();
+      this.bootstrapIssue(stateIssue);
       return;
     }
 
@@ -107,15 +207,174 @@ export class IssueDetailComponent implements OnInit {
       next: (resolved) => {
         if (resolved) {
           this.issue.set(resolved);
-          this.loadSubtasks();
-          this.commentStore.loadFirst();
-          this.attachmentStore.loadFirst();
+          this.bootstrapIssue(resolved);
         } else {
           this.errorMessage.set('Issue not found. Open it from the sprint board or My tasks.');
         }
       },
       error: () => this.errorMessage.set('Unable to load this issue.'),
     });
+  }
+
+  private bootstrapIssue(issue: Issue): void {
+    this.selectedAssigneeId = issue.assigneeId ?? '';
+    this.loadSubtasks();
+    this.commentStore.loadFirst();
+    this.attachmentStore.loadFirst();
+    if (issue.projectId) {
+      this.initAssigneePicker(issue.projectId);
+    }
+  }
+
+  private initAssigneePicker(projectId: string): void {
+    if (this.assigneePickerProjectId() === projectId && this.assigneePickerStore) {
+      return;
+    }
+    this.assigneePickerProjectId.set(projectId);
+    this.assigneePickerStore = new PaginatedListStore<ProjectMember>((query) =>
+      this.memberService.getByProject(projectId, query),
+    );
+    this.onAssigneeSearch('');
+  }
+
+  onAssigneeSearch(search: string): void {
+    if (!this.assigneePickerStore) {
+      return;
+    }
+    this.assigneeSelectLoading.set(true);
+    this.assigneePickerStore.loadFirst(search);
+    this.waitForAssigneePicker(() => {
+      this.syncAssigneeOptions();
+      this.assigneeSelectLoading.set(false);
+    });
+  }
+
+  onAssigneeLoadMore(): void {
+    if (!this.assigneePickerStore) {
+      return;
+    }
+    this.assigneePickerStore.loadMore();
+    this.waitForAssigneePicker(() => this.syncAssigneeOptions());
+  }
+
+  private waitForAssigneePicker(done: () => void): void {
+    const poll = () => {
+      if (
+        this.assigneePickerStore?.loading() ||
+        this.assigneePickerStore?.loadingMore()
+      ) {
+        requestAnimationFrame(poll);
+        return;
+      }
+      done();
+    };
+    requestAnimationFrame(poll);
+  }
+
+  private syncAssigneeOptions(): void {
+    this.assigneeSelectOptions.set(
+      (this.assigneePickerStore?.items() ?? []).map((m) => ({
+        value: m.memberId,
+        label: m.memberName || m.memberEmail || m.memberId,
+        sublabel: m.memberEmail,
+      })),
+    );
+  }
+
+  assignSelectedMember(): void {
+    const current = this.issue();
+    if (!current || !this.selectedAssigneeId) {
+      return;
+    }
+    this.isAssigning.set(true);
+    this.issueService.assign(current.id, this.selectedAssigneeId).subscribe({
+      next: (updated) => {
+        this.issue.set(updated);
+        this.isAssigning.set(false);
+        this.toast.success('Assignee updated.');
+      },
+      error: (e) => {
+        this.isAssigning.set(false);
+        this.toast.error(extractApiErrorMessage(e, 'Could not assign issue.'));
+      },
+    });
+  }
+
+  clearAssignee(): void {
+    if (this.isAdmin()) {
+      const current = this.issue();
+      if (!current) {
+        return;
+      }
+      this.isAssigning.set(true);
+      this.issueService.assign(current.id, null).subscribe({
+        next: (updated) => {
+          this.issue.set(updated);
+          this.selectedAssigneeId = '';
+          this.isAssigning.set(false);
+          this.toast.success('Issue unassigned.');
+        },
+        error: (e) => {
+          this.isAssigning.set(false);
+          this.toast.error(extractApiErrorMessage(e, 'Could not unassign issue.'));
+        },
+      });
+      return;
+    }
+    this.unassignMe();
+  }
+
+  onCommentFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const user = this.authService.currentUser();
+    const uploaderName = user ? `${user.prenom} ${user.nom}`.trim() || user.email : 'You';
+    const isImage = file.type.startsWith('image/');
+    const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+    const pendingId = crypto.randomUUID();
+
+    this.pendingAttachmentUploads.update((list) => [
+      { id: pendingId, previewUrl, fileName: file.name, loading: true, uploaderName, isImage },
+      ...list,
+    ]);
+
+    const finalizeSuccess = (url?: string) => {
+      this.pendingAttachmentUploads.update((list) =>
+        list.map((item) =>
+          item.id === pendingId ? { ...item, loading: false, url: url ?? item.previewUrl } : item,
+        ),
+      );
+      this.commentStore.loadFirst();
+      this.attachmentStore.loadFirst();
+      input.value = '';
+    };
+
+    const finalizeError = (message: string) => {
+      this.pendingAttachmentUploads.update((list) => list.filter((item) => item.id !== pendingId));
+      this.toast.error(message);
+      input.value = '';
+    };
+
+    if (isImage && !this.newComment.trim()) {
+      this.commentService.createWithAttachment(this.issueId, '', file).subscribe({
+        next: (comment) => finalizeSuccess(this.commentImageUrl(comment.content) ?? undefined),
+        error: (e) => finalizeError(e?.error?.message ?? 'Upload failed.'),
+      });
+      return;
+    }
+
+    this.attachmentService.upload(this.issueId, file).subscribe({
+      next: (attachment) => finalizeSuccess(attachment.url),
+      error: (e) => finalizeError(e?.error?.message ?? 'Upload failed.'),
+    });
+  }
+
+  onFileSelected(event: Event): void {
+    this.onCommentFileSelected(event);
   }
 
   private loadSubtasks(): void {
@@ -173,28 +432,12 @@ export class IssueDetailComponent implements OnInit {
     this.commentService
       .create({ Content: this.newComment.trim(), IssueId: this.issueId })
       .subscribe({
-        next: () => {
+        next: (comment) => {
           this.newComment = '';
           this.commentStore.loadFirst();
-          this.toast.success('Comment posted.');
+          this.toast.success(`Comment posted by ${this.commentAuthorName(comment)}.`);
         },
       });
-  }
-
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) {
-      return;
-    }
-    this.attachmentService.upload(this.issueId, file).subscribe({
-      next: () => {
-        this.attachmentStore.loadFirst();
-        input.value = '';
-        this.toast.success('Attachment uploaded.');
-      },
-      error: (e) => this.toast.error(e?.error?.message ?? 'Upload failed.'),
-    });
   }
 
   addSubtask(): void {

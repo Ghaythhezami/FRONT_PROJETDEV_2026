@@ -7,6 +7,7 @@ import { RouterModule } from '@angular/router';
 import { AppHeaderComponent } from '../app-header/app-header.component';
 import { ApiToastComponent } from '../../components/common/api-toast/api-toast.component';
 import { ConfirmDialogComponent } from '../../ui/confirm/confirm-dialog.component';
+import { PwaInstallBannerComponent } from '../../components/common/pwa-install-banner/pwa-install-banner.component';
 
 @Component({
   selector: 'app-layout',
@@ -18,6 +19,7 @@ import { ConfirmDialogComponent } from '../../ui/confirm/confirm-dialog.componen
     BackdropComponent,
     ApiToastComponent,
     ConfirmDialogComponent,
+    PwaInstallBannerComponent,
   ],
   templateUrl: './app-layout.component.html',
 })

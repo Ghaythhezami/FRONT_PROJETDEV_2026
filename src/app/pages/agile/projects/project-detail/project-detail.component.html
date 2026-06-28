@@ -7,10 +7,10 @@
     <app-ui-alert [message]="projectError()" variant="error" />
   } @else if (project(); as p) {
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <span class="text-xs font-semibold uppercase text-brand-600">{{ p.key }}</span>
-        <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ p.projectName }}</h1>
-        <p class="mt-1 text-sm text-gray-500">{{ p.projectDescription || '—' }}</p>
+      <div class="min-w-0 flex-1">
+        <span class="text-xs font-semibold uppercase text-sky-600 dark:text-sky-300">{{ p.key }}</span>
+        <h1 class="truncate text-2xl font-semibold text-gray-900 dark:text-white">{{ p.projectName }}</h1>
+        <p class="line-clamp-2 break-words text-sm text-gray-600 dark:text-gray-300">{{ p.projectDescription || '—' }}</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <a [routerLink]="['/projects', projectId, 'backlog']" class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700">Backlog</a>
@@ -21,18 +21,23 @@
       </div>
     </div>
 
-    <nav class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-white/[0.05]">
-      @for (tab of ['overview', 'sprints', 'members', 'activity', 'ai']; track tab) {
+    <nav class="flex flex-wrap gap-2 rounded-2xl border border-gray-100 bg-white p-2 dark:border-white/10 dark:bg-gray-900/80">
+      @for (tab of projectTabs; track tab.id) {
         <button
           type="button"
-          class="border-b-2 px-4 py-2.5 text-sm font-medium capitalize"
-          [class.border-brand-500]="activeTab() === tab"
-          [class.text-brand-600]="activeTab() === tab"
-          [class.border-transparent]="activeTab() !== tab"
-          [class.text-gray-500]="activeTab() !== tab"
-          (click)="setTab($any(tab))"
+          class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition"
+          [class.bg-sky-100]="activeTab() === tab.id"
+          [class.text-sky-800]="activeTab() === tab.id"
+          [class.dark:bg-sky-500/20]="activeTab() === tab.id"
+          [class.dark:text-sky-200]="activeTab() === tab.id"
+          [class.text-gray-600]="activeTab() !== tab.id"
+          [class.dark:text-gray-300]="activeTab() !== tab.id"
+          [class.hover:bg-gray-50]="activeTab() !== tab.id"
+          [class.dark:hover:bg-white/5]="activeTab() !== tab.id"
+          (click)="setTab(tab.id)"
         >
-          {{ tab }}
+          <span [innerHTML]="tab.icon"></span>
+          <span class="hidden sm:inline">{{ tab.label }}</span>
         </button>
       }
     </nav>
@@ -41,18 +46,18 @@
       <div class="grid gap-4 lg:grid-cols-2">
         <app-ui-card title="Active sprint">
           @if (activeSprint(); as s) {
-            <p class="text-sm">{{ s.name }}</p>
-            <p class="mt-1 text-xs text-gray-500">{{ s.doneStories }}/{{ s.totalStories }} stories · {{ s.doneIssues }}/{{ s.totalIssues }} issues</p>
-            <a [routerLink]="['/sprints', s.sprintId, 'board']" class="mt-2 inline-block text-sm text-brand-600">Open board →</a>
+            <p class="text-sm text-gray-800 dark:text-gray-200">{{ s.name }}</p>
+            <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">{{ s.doneStories }}/{{ s.totalStories }} stories · {{ s.doneIssues }}/{{ s.totalIssues }} issues</p>
+            <a [routerLink]="['/sprints', s.sprintId, 'board']" class="mt-2 inline-block text-sm text-sky-600 dark:text-sky-300">Open board →</a>
           } @else {
-            <p class="text-sm text-gray-500">No active sprint</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">No active sprint</p>
           }
         </app-ui-card>
         <app-ui-card title="Team workload">
-          <ul class="space-y-2 text-sm">
+          <ul class="space-y-2 text-sm text-gray-800 dark:text-gray-200">
             @for (w of workload(); track w.memberId) {
-              <li class="flex justify-between"><span>{{ w.memberName }}</span><span>{{ w.assignedIssues }} open / {{ w.completedIssues }} done</span></li>
-            } @empty { <li class="text-gray-500">No data</li> }
+              <li class="flex justify-between gap-3"><span>{{ w.memberName }}</span><span class="text-gray-600 dark:text-gray-400">{{ w.assignedIssues }} open / {{ w.completedIssues }} done</span></li>
+            } @empty { <li class="text-gray-600 dark:text-gray-400">No data</li> }
           </ul>
         </app-ui-card>
         <app-ui-card title="Velocity">
@@ -86,6 +91,20 @@
             </div>
           </app-ui-card>
         }
+        <app-ui-card title="AI insights" subtitle="Smart analysis for this project" className="lg:col-span-2">
+          <div class="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-violet-50 p-5 dark:border-brand-500/20 dark:from-brand-500/10 dark:to-violet-500/5">
+            <div class="flex flex-wrap gap-2">
+              <app-ui-button size="sm" [loading]="isAiLoading()" (pressed)="runAi('standup')">Daily standup</app-ui-button>
+              <app-ui-button size="sm" variant="outline" [loading]="isAiLoading()" (pressed)="runAi('release')">Release notes</app-ui-button>
+              <app-ui-button size="sm" variant="outline" [loading]="isAiLoading()" (pressed)="runAi('risk')">Sprint risk</app-ui-button>
+            </div>
+            @if (aiOutput()) {
+              <div class="mt-4 whitespace-pre-wrap rounded-xl bg-white/80 p-4 text-sm leading-relaxed text-gray-800 dark:bg-gray-900/80 dark:text-gray-200">{{ aiOutput() }}</div>
+            } @else {
+              <p class="mt-4 text-sm text-gray-500">Run an analysis to get actionable recommendations for your team.</p>
+            }
+          </div>
+        </app-ui-card>
       </div>
     }
 
@@ -171,29 +190,30 @@
           @if (userDirectoryHint()) {
             <p class="text-xs text-gray-500">{{ userDirectoryHint() }}</p>
           }
-          <app-infinite-select
-            label="Add member"
-            placeholder="Search and select a user"
+          <app-infinite-multi-select
+            label="Add members"
+            placeholder="Search and select team members"
             [options]="userSelectOptions()"
             [loading]="userSelectLoading()"
-            [value]="newMemberId"
-            (valueChange)="newMemberId = $event"
-            (search)="loadUserOptions($event)"
+            [hasMore]="userPickerStore.hasMore()"
+            [values]="newMemberIds"
+            (valuesChange)="newMemberIds = $event"
+            (search)="onUserSearch($event)"
+            (loadMore)="onUserLoadMore()"
           />
           @if (memberActionError()) {
             <app-ui-alert [message]="memberActionError()" variant="error" [dismissible]="true" (dismissed)="memberActionError.set('')" />
           }
           <div class="flex flex-wrap gap-2">
             <app-ui-button (pressed)="addMember()">Add to project</app-ui-button>
-            <app-ui-button variant="outline" (pressed)="addSelfAsMember()">Add me</app-ui-button>
           </div>
         </div>
         <ul class="divide-y dark:divide-white/[0.05]">
           @for (m of memberStore.items(); track m.id) {
             <li class="flex items-center justify-between py-3">
               <div>
-                <p class="font-medium">{{ m.memberName || m.memberId }}</p>
-                <p class="text-xs text-gray-500">{{ m.memberEmail }}</p>
+                <p class="font-medium">{{ m.memberName || 'Team member' }}</p>
+                <p class="text-xs text-gray-500">{{ m.memberEmail || m.role || '' }}</p>
               </div>
               <app-ui-button variant="ghost" size="sm" (pressed)="removeMember(m)">Remove</app-ui-button>
             </li>
@@ -219,17 +239,5 @@
       </app-ui-card>
     }
 
-    @if (activeTab() === 'ai') {
-      <app-ui-card title="AI assistant" subtitle="Standup summaries, release notes, and sprint risk analysis">
-        <div class="flex flex-wrap gap-2">
-          <app-ui-button [loading]="isAiLoading()" (pressed)="runAi('standup')">Daily standup</app-ui-button>
-          <app-ui-button variant="outline" [loading]="isAiLoading()" (pressed)="runAi('release')">Release notes</app-ui-button>
-          <app-ui-button variant="outline" [loading]="isAiLoading()" (pressed)="runAi('risk')">Sprint risk</app-ui-button>
-        </div>
-        @if (aiOutput()) {
-          <div class="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm leading-relaxed dark:bg-gray-800">{{ aiOutput() }}</div>
-        }
-      </app-ui-card>
-    }
   }
 </div>

@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config/api.config';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
 import { AuthUser, UserResponseDto } from './auth.models';
 import { RegisterUserDto, UpdateUserDto } from './user-management.models';
-import { fetchClientPagedList } from '../utils/list-api.util';
+import { fetchServerPagedList } from '../utils/list-api.util';
 
 @Injectable({ providedIn: 'root' })
 export class UserManagementService {
@@ -14,13 +14,11 @@ export class UserManagementService {
   constructor(private readonly http: HttpClient) {}
 
   getUsersPaged(query: PaginationQuery): Observable<PagedResult<AuthUser>> {
-    return fetchClientPagedList(
+    return fetchServerPagedList(
       this.http,
       `${this.apiUrl}/getAll`,
       query,
       (raw) => this.normalizeUser(raw as UserResponseDto),
-      (user, term) =>
-        `${user.prenom} ${user.nom} ${user.email} ${user.role}`.toLowerCase().includes(term),
     ).pipe(
       catchError((error) => {
         if (error?.status === 403) {
@@ -37,7 +35,7 @@ export class UserManagementService {
   }
 
   getAllUsers(): Observable<AuthUser[]> {
-    return this.getUsersPaged({ page: 1, limit: 500 }).pipe(map((result) => result.items));
+    return this.getUsersPaged({ page: 1, limit: 10 }).pipe(map((result) => result.items));
   }
 
   createUser(user: RegisterUserDto): Observable<AuthUser> {

@@ -35,6 +35,7 @@ export class AuthService {
     private readonly notificationService: NotificationService,
     private readonly boardSignalrService: BoardSignalrService,
   ) {
+    this.repairStoredUserFromToken();
     if (this.sessionActiveSignal()) {
       this.bootstrapRealtimeServices();
     }
@@ -117,6 +118,7 @@ export class AuthService {
           catchError(() => of(this.fallbackUser(email))),
         ),
       ),
+      map((user) => this.ensureUserId(user)),
       tap((user) => this.storeUser(user, rememberMe)),
     );
   }
@@ -146,7 +148,7 @@ export class AuthService {
   }
 
   private fallbackUser(email: string): AuthUser {
-    return {
+    return this.ensureUserId({
       userId: '',
       nom: '',
       prenom: email.split('@')[0] ?? 'User',
@@ -154,7 +156,46 @@ export class AuthService {
       telephone: '',
       role: '',
       filiale: '',
-    };
+    });
+  }
+
+  private ensureUserId(user: AuthUser): AuthUser {
+    if (user.userId?.trim()) {
+      return user;
+    }
+    const fromToken = this.userIdFromAccessToken();
+    return fromToken ? { ...user, userId: fromToken } : user;
+  }
+
+  private userIdFromAccessToken(): string {
+    const token = this.accessToken;
+    if (!token) {
+      return '';
+    }
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) {
+        return '';
+      }
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = JSON.parse(atob(normalized)) as Record<string, unknown>;
+      return String(decoded['UserId'] ?? decoded['userId'] ?? '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  private repairStoredUserFromToken(): void {
+    const user = this.currentUserSignal();
+    if (!user || user.userId?.trim()) {
+      return;
+    }
+    const repaired = this.ensureUserId(user);
+    if (repaired.userId && repaired.userId !== user.userId) {
+      const storage = localStorage.getItem(USER_KEY) ? localStorage : sessionStorage;
+      storage.setItem(USER_KEY, JSON.stringify(repaired));
+      this.currentUserSignal.set(repaired);
+    }
   }
 
   private normalizeTokens(tokens: TokenApiDto): AuthTokens {

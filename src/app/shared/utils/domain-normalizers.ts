@@ -36,6 +36,7 @@ export function normalizeProject(raw: Raw): Project {
     key: ['key', 'Key'],
     memberCount: ['memberCount', 'MemberCount'],
     activeSprintName: ['activeSprintName', 'ActiveSprintName'],
+    openIssueCount: ['openIssueCount', 'OpenIssueCount', 'openIssues', 'OpenIssues'],
   });
   project.id = extractUuid(raw, ['projectId', 'ProjectId', 'id', 'Id']) || project.id;
   project.defaultEpicId = extractUuid(raw, ['epicId', 'EpicId', 'defaultEpicId', 'DefaultEpicId']);
@@ -101,7 +102,9 @@ export function normalizeIssue(raw: Raw): Issue {
     userStoryId: ['userStoryId', 'UserStoryId'],
     assigneeId: ['assigneeId', 'AssigneeId'],
     assigneeName: ['assigneeName', 'AssigneeName'],
+    assignees: ['assignees', 'Assignees'],
     sprintId: ['sprintId', 'SprintId'],
+    projectId: ['projectId', 'ProjectId'],
     description: ['description', 'Description', 'note', 'Note'],
     priority: ['priority', 'Priority'],
     commentCount: ['commentCount', 'CommentCount', 'commentsCount', 'CommentsCount'],
@@ -111,11 +114,32 @@ export function normalizeIssue(raw: Raw): Issue {
       'attachmentsCount',
       'AttachmentsCount',
     ],
+    subtaskCount: ['subtaskCount', 'SubtaskCount'],
+    completedSubtaskCount: ['completedSubtaskCount', 'CompletedSubtaskCount'],
     progressPercent: ['progressPercent', 'ProgressPercent', 'progress', 'Progress'],
+    projectName: ['projectName', 'ProjectName'],
+    projectKey: ['projectKey', 'ProjectKey'],
+    sprintName: ['sprintName', 'SprintName'],
   });
   issue.id = extractUuid(raw, ['issueId', 'IssueId', 'id', 'Id']) || issue.id;
   issue.userStoryId = extractUuid(raw, ['userStoryId', 'UserStoryId']) || issue.userStoryId;
+  issue.projectId = extractUuid(raw, ['projectId', 'ProjectId']) || issue.projectId;
+  issue.sprintId = extractUuid(raw, ['sprintId', 'SprintId']) || issue.sprintId;
   issue.status = normalizeIssueStatus(rawStatus);
+
+  const rawAssignees = raw['assignees'] ?? raw['Assignees'];
+  if (Array.isArray(rawAssignees)) {
+    issue.assignees = rawAssignees.map((a) => {
+      const item = a as Raw;
+      return {
+        userId: extractUuid(item, ['userId', 'UserId']) || '',
+        name: String(item['name'] ?? item['Name'] ?? '').trim(),
+      };
+    }).filter((a) => a.name || a.userId);
+  } else if (issue.assigneeName && issue.assigneeId) {
+    issue.assignees = [{ userId: issue.assigneeId, name: issue.assigneeName }];
+  }
+
   if (issue.progressPercent === undefined) {
     issue.progressPercent = progressFromStatus(Number(issue.status));
   }
@@ -146,6 +170,14 @@ export function normalizeProjectMember(raw: Raw): ProjectMember {
   });
   member.id =
     extractUuid(raw, ['projectMemberId', 'ProjectMemberId', 'id', 'Id']) || member.id;
+  if (!member.memberName) {
+    const prenom = String(raw['prenom'] ?? raw['Prenom'] ?? '').trim();
+    const nom = String(raw['nom'] ?? raw['Nom'] ?? '').trim();
+    const combined = `${prenom} ${nom}`.trim();
+    if (combined) {
+      member.memberName = combined;
+    }
+  }
   return member;
 }
 
@@ -154,6 +186,7 @@ export function normalizeActivity(raw: Raw): ActivityItem {
   const entityType = String(raw['entityType'] ?? raw['EntityType'] ?? '');
   const description =
     String(raw['description'] ?? raw['Description'] ?? raw['message'] ?? raw['Message'] ?? '') ||
+    String(raw['action'] ?? raw['Action'] ?? '') ||
     [action, entityType].filter(Boolean).join(' · ');
 
   return {
@@ -206,7 +239,10 @@ export function normalizeAttachment(raw: Raw): import('../models/domain.models')
     id: ['attachmentId', 'AttachmentId', 'id', 'Id'],
     fileName: ['fileName', 'FileName', 'name', 'Name'],
     url: ['url', 'Url', 'fileUrl', 'FileUrl'],
+    fileType: ['fileType', 'FileType'],
     issueId: ['issueId', 'IssueId'],
+    uploaderId: ['uploaderId', 'UploaderId'],
+    uploaderName: ['uploaderName', 'UploaderName'],
     uploadedAt: ['uploadedAt', 'UploadedAt', 'createdAt', 'CreatedAt'],
     sizeBytes: ['fileSize', 'FileSize', 'sizeBytes', 'SizeBytes'],
   });
@@ -219,45 +255,38 @@ export function normalizeAttachment(raw: Raw): import('../models/domain.models')
 }
 
 export function normalizeSprintBoard(raw: unknown, sprintId: string): SprintBoard {
+  const mapColumns = (columnsRaw: Raw[]) =>
+    columnsRaw.map((col) => ({
+      status: normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus,
+      label: String(
+        col['label'] ??
+          col['Label'] ??
+          ITEM_STATUS_LABELS[
+            normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus
+          ] ??
+          'Column',
+      ),
+      issues: ((col['issues'] ?? col['Issues'] ?? []) as Raw[]).map(normalizeIssue),
+    }));
+
   if (Array.isArray(raw)) {
-    const columnsRaw = raw as Raw[];
     return {
       sprintId,
       sprintName: '',
-      columns: columnsRaw.map((col) => ({
-        status: normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus,
-        label: String(
-          col['label'] ??
-            col['Label'] ??
-            ITEM_STATUS_LABELS[
-              normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus
-            ] ??
-            'Column',
-        ),
-        issues: ((col['issues'] ?? col['Issues'] ?? []) as Raw[]).map(normalizeIssue),
-      })),
+      columns: mapColumns(raw as Raw[]),
     };
   }
 
   const record = (raw ?? {}) as Raw;
+  const projectId = extractUuid(record, ['projectId', 'ProjectId']);
   const columnsRaw = (record['columns'] ?? record['Columns']) as Raw[] | undefined;
 
   if (Array.isArray(columnsRaw) && columnsRaw.length > 0) {
     return {
       sprintId,
       sprintName: String(record['sprintName'] ?? record['SprintName'] ?? ''),
-      columns: columnsRaw.map((col) => ({
-        status: normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus,
-        label: String(
-          col['label'] ??
-            col['Label'] ??
-            ITEM_STATUS_LABELS[
-              normalizeIssueStatus(Number(col['status'] ?? col['Status'])) as ItemStatus
-            ] ??
-            'Column',
-        ),
-        issues: ((col['issues'] ?? col['Issues'] ?? []) as Raw[]).map(normalizeIssue),
-      })),
+      projectId: projectId || undefined,
+      columns: mapColumns(columnsRaw),
     };
   }
 
@@ -265,6 +294,7 @@ export function normalizeSprintBoard(raw: unknown, sprintId: string): SprintBoar
   return {
     sprintId,
     sprintName: String(record['sprintName'] ?? record['SprintName'] ?? ''),
+    projectId: projectId || undefined,
     columns: KANBAN_COLUMNS.map((status) => ({
       status,
       label: ITEM_STATUS_LABELS[status],

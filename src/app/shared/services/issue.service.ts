@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map, of, switchMap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
-import { Issue, ItemStatus } from '../models/domain.models';
+import { Issue, ItemStatus, MyTaskProjectFilter } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
 import { normalizeIssue } from '../utils/domain-normalizers';
 import { fetchClientPagedList, fetchServerPagedList } from '../utils/list-api.util';
@@ -54,6 +54,22 @@ export class IssueService {
     );
   }
 
+  getMyTaskFilters(): Observable<MyTaskProjectFilter[]> {
+    return this.http.get<unknown>(`${this.base}/my-tasks/filters`).pipe(
+      map((body) => {
+        const list = Array.isArray(body) ? body : [];
+        return list.map((raw) => {
+          const item = raw as Record<string, unknown>;
+          return {
+            projectId: String(item['projectId'] ?? item['ProjectId'] ?? ''),
+            projectName: String(item['projectName'] ?? item['ProjectName'] ?? ''),
+            key: String(item['key'] ?? item['Key'] ?? ''),
+          };
+        });
+      }),
+    );
+  }
+
   /** Resolves an issue when opening detail without router state. */
   resolveIssue(issueId: string, sprintId?: string | null): Observable<Issue | null> {
     if (!isUuid(issueId)) {
@@ -98,6 +114,18 @@ export class IssueService {
       .pipe(map(normalizeIssue));
   }
 
+  assignMe(id: string): Observable<Issue> {
+    return this.http
+      .post<Record<string, unknown>>(`${this.base}/${id}/assign-me`, {})
+      .pipe(map(normalizeIssue));
+  }
+
+  unassignMe(id: string): Observable<Issue> {
+    return this.http
+      .post<Record<string, unknown>>(`${this.base}/${id}/unassign-me`, {})
+      .pipe(map(normalizeIssue));
+  }
+
   update(id: string, payload: UpdateIssuePayload): Observable<Issue> {
     return this.http
       .put<Record<string, unknown>>(`${this.base}/${id}`, payload)
@@ -111,11 +139,11 @@ export class IssueService {
   }
 
   private fetchAllFromBoard(sprintId: string): Observable<Issue[]> {
-    return this.collectAllPages((page) => this.getBoard(sprintId, { page, limit: 50 }));
+    return this.collectAllPages((page) => this.getBoard(sprintId, { page, limit: 10 }));
   }
 
   private fetchAllMyTasks(): Observable<Issue[]> {
-    return this.collectAllPages((page) => this.getMyTasks({ page, limit: 50 }));
+    return this.collectAllPages((page) => this.getMyTasks({ page, limit: 10 }));
   }
 
   private collectAllPages<T>(

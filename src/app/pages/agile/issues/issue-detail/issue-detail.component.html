@@ -7,7 +7,26 @@
 
   @if (issue(); as iss) {
     <app-ui-card>
-      <h1 class="text-xl font-semibold text-gray-800 dark:text-white/90">{{ iss.title }}</h1>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          @if (iss.projectKey) {
+            <span class="rounded-md bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">
+              {{ iss.projectKey }}
+            </span>
+          }
+          <h1 class="mt-2 break-words text-xl font-semibold text-gray-900 dark:text-white">{{ iss.title }}</h1>
+          @if (iss.projectName) {
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              {{ iss.projectName }} @if (iss.sprintName) { · {{ iss.sprintName }} }
+            </p>
+          }
+        </div>
+        @if (iss.assigneeName) {
+          <span class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800 dark:bg-sky-500/15 dark:text-sky-200">
+            {{ iss.assigneeName }}
+          </span>
+        }
+      </div>
       <div class="mt-4 flex flex-wrap gap-2">
         @for (st of statuses; track st) {
           <button
@@ -15,15 +34,49 @@
             class="rounded-full px-3 py-1 text-xs font-medium"
             [ngClass]="statusColors[st]"
             [class.ring-2]="iss.status === st"
-            [class.ring-brand-500]="iss.status === st"
+            [class.ring-sky-500]="iss.status === st"
             [disabled]="isSaving()"
             (click)="updateStatus(st)"
           >
             {{ statusLabels[st] }}
           </button>
         }
-        <app-ui-button variant="outline" size="sm" (pressed)="autoAssign()">Auto-assign (AI)</app-ui-button>
+        @if (isAdmin()) {
+          <app-ui-button variant="outline" size="sm" (pressed)="autoAssign()">Auto-assign (AI)</app-ui-button>
+        }
       </div>
+    </app-ui-card>
+
+    <app-ui-card title="Assignment" [subtitle]="isAdmin() ? 'Assign any project member' : 'Take ownership of this task'">
+      @if (isAdmin()) {
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div class="min-w-0 flex-1">
+            <app-infinite-select
+              label="Team member"
+              placeholder="Search project members"
+              [options]="assigneeSelectOptions()"
+              [loading]="assigneeSelectLoading()"
+              [hasMore]="assigneePickerHasMore()"
+              [value]="selectedAssigneeId"
+              (valueChange)="selectedAssigneeId = $event"
+              (search)="onAssigneeSearch($event)"
+              (loadMore)="onAssigneeLoadMore()"
+            />
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <app-ui-button [loading]="isAssigning()" (pressed)="assignSelectedMember()">Assign</app-ui-button>
+            <app-ui-button variant="outline" [loading]="isAssigning()" (pressed)="clearAssignee()">Unassign</app-ui-button>
+          </div>
+        </div>
+      } @else {
+        <div class="flex flex-wrap gap-2">
+          @if (!isAssignedToMe()) {
+            <app-ui-button [loading]="isAssigning()" (pressed)="assignMe()">Assign me to this ticket</app-ui-button>
+          } @else {
+            <app-ui-button variant="outline" [loading]="isAssigning()" (pressed)="unassignMe()">Unassign me</app-ui-button>
+          }
+        </div>
+      }
     </app-ui-card>
   }
 
@@ -34,12 +87,47 @@
         [(ngModel)]="newComment"
         name="comment"
       />
-      <app-ui-button className="mt-3" (pressed)="postComment()">Post comment</app-ui-button>
-      <ul class="mt-4 divide-y divide-gray-100 dark:divide-white/[0.05]">
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <app-ui-button (pressed)="postComment()">Post comment</app-ui-button>
+        <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+          <span>📎 Add photo/file</span>
+          <input type="file" class="hidden" accept="image/*,.pdf,.doc,.docx" (change)="onCommentFileSelected($event)" />
+        </label>
+      </div>
+
+      @if (pendingAttachmentUploads().length) {
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          @for (pending of pendingAttachmentUploads(); track pending.id) {
+            <div class="overflow-hidden rounded-xl border border-sky-100 bg-sky-50/60 dark:border-sky-500/20 dark:bg-sky-500/5">
+              <div class="relative flex min-h-[120px] items-center justify-center bg-white/70 dark:bg-gray-900/50">
+                @if (pending.loading) {
+                  <div class="h-10 w-10 animate-spin rounded-full border-2 border-sky-200 border-t-sky-500"></div>
+                } @else if (pending.isImage && (pending.url || pending.previewUrl)) {
+                  <img [src]="pending.url || pending.previewUrl" [alt]="pending.fileName" class="max-h-40 w-full object-cover" />
+                } @else {
+                  <span class="px-3 text-center text-sm text-gray-600 dark:text-gray-300">{{ pending.fileName }}</span>
+                }
+              </div>
+              <div class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+                {{ pending.uploaderName }}
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <ul class="mt-4 divide-y divide-gray-100 dark:divide-white/10">
         @for (c of commentStore.items(); track c.id) {
           <li class="py-3">
-            <p class="text-sm text-gray-800 dark:text-white/90">{{ c.content }}</p>
-            <p class="mt-1 text-xs text-gray-500">{{ c.authorName || 'User' }} · {{ c.createdAt | date: 'short' }}</p>
+            @if (commentPlainText(c.content)) {
+              <p class="text-sm text-gray-900 dark:text-gray-100">{{ commentPlainText(c.content) }}</p>
+            }
+            @if (commentImageUrl(c.content); as imgUrl) {
+              <img [src]="imgUrl" alt="Comment attachment" class="mt-2 max-h-48 rounded-lg border border-gray-100 object-cover dark:border-white/10" />
+            }
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ commentAuthorName(c) }} · {{ c.createdAt | date: 'short' }}
+            </p>
           </li>
         }
       </ul>
@@ -53,15 +141,26 @@
       />
     </app-ui-card>
 
-    <app-ui-card title="Attachments" subtitle="Upload files related to this task">
-      <input type="file" class="text-sm" (change)="onFileSelected($event)" />
-      <ul class="mt-4 space-y-2">
+    <app-ui-card title="Attachments" subtitle="Files uploaded to this task">
+      <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+        <span>Upload file</span>
+        <input type="file" class="hidden" accept="image/*,.pdf,.doc,.docx" (change)="onFileSelected($event)" />
+      </label>
+      <ul class="mt-4 space-y-3">
         @for (a of attachmentStore.items(); track a.id) {
-          <li class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800">
-            <span>{{ a.fileName }}</span>
-            @if (a.url) {
-              <a [href]="a.url" target="_blank" class="text-xs text-brand-600">Open</a>
+          <li class="overflow-hidden rounded-xl border border-gray-100 dark:border-white/10">
+            @if (isImageAttachment(a) && a.url) {
+              <img [src]="a.url" [alt]="a.fileName" class="max-h-44 w-full object-cover" />
             }
+            <div class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <div class="min-w-0">
+                <p class="truncate font-medium text-gray-900 dark:text-gray-100">{{ a.fileName }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ a.uploaderName || 'Team member' }}</p>
+              </div>
+              @if (a.url) {
+                <a [href]="a.url" target="_blank" class="shrink-0 text-xs text-sky-600 dark:text-sky-300">Open</a>
+              }
+            </div>
           </li>
         }
       </ul>
@@ -69,30 +168,55 @@
     </app-ui-card>
   </div>
 
-  <app-ui-card title="Subtasks" subtitle="Break this task into smaller steps">
-    <div class="flex flex-wrap gap-2">
-      <div class="min-w-[200px] flex-1">
-        <app-ui-form-field
-          placeholder="New subtask"
-          [(ngModel)]="newSubtaskTitle"
-          name="subtaskTitle"
-        />
+  @if (issue(); as iss) {
+    <app-ui-card title="Subtasks" subtitle="Break this task into smaller steps">
+      <div class="flex flex-wrap gap-2">
+        <div class="min-w-[200px] flex-1">
+          <app-ui-form-field
+            placeholder="New subtask"
+            [(ngModel)]="newSubtaskTitle"
+            name="subtaskTitle"
+          />
+        </div>
+        <app-ui-button (pressed)="addSubtask()">Add</app-ui-button>
+        @if (isAdmin()) {
+          <app-ui-button variant="secondary" [loading]="isAiLoading()" (pressed)="generateAiSubtasks()">
+            AI suggest
+          </app-ui-button>
+        }
       </div>
-      <app-ui-button (pressed)="addSubtask()">Add</app-ui-button>
-      <app-ui-button variant="secondary" [loading]="isAiLoading()" (pressed)="generateAiSubtasks()">
-        AI suggest
-      </app-ui-button>
-    </div>
-    @if (aiSubtasks()) {
-      <div class="mt-4 whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-sm leading-relaxed dark:bg-brand-500/10">{{ aiSubtasks() }}</div>
-    }
-    <ul class="mt-4 space-y-2">
-      @for (st of subtasks(); track st.id) {
-        <li class="flex items-center gap-3">
-          <input type="checkbox" [checked]="st.isCompleted" (change)="toggleSubtask(st)" />
-          <span [class.line-through]="st.isCompleted">{{ st.title }}</span>
-        </li>
+      @if (aiSubtasks()) {
+        <div class="mt-4 whitespace-pre-wrap rounded-lg bg-sky-50 p-3 text-sm leading-relaxed dark:bg-sky-500/10 dark:text-gray-200">{{ aiSubtasks() }}</div>
       }
-    </ul>
-  </app-ui-card>
+      <div class="mt-4 space-y-2">
+        @for (st of subtasks(); track st.id) {
+          <details class="group overflow-hidden rounded-xl border border-gray-100 bg-white dark:border-white/10 dark:bg-gray-900/60">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none">
+              <div class="flex min-w-0 flex-1 items-center gap-3">
+                <span
+                  class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                  [class.bg-emerald-100]="st.isCompleted"
+                  [class.text-emerald-700]="st.isCompleted"
+                  [class.bg-gray-100]="!st.isCompleted"
+                  [class.text-gray-500]="!st.isCompleted"
+                >
+                  {{ st.isCompleted ? '✓' : '○' }}
+                </span>
+                <span class="truncate text-sm font-medium text-gray-900 dark:text-gray-100" [class.line-through]="st.isCompleted" [class.text-gray-400]="st.isCompleted">
+                  {{ st.title }}
+                </span>
+              </div>
+            </summary>
+            <div class="border-t border-gray-100 px-4 py-3 text-sm text-gray-600 dark:border-white/10 dark:text-gray-300">
+              <app-ui-button className="mt-1" variant="outline" size="xs" (pressed)="toggleSubtask(st)">
+                Mark as {{ st.isCompleted ? 'incomplete' : 'complete' }}
+              </app-ui-button>
+            </div>
+          </details>
+        } @empty {
+          <p class="py-4 text-center text-sm text-gray-500 dark:text-gray-400">No subtasks yet.</p>
+        }
+      </div>
+    </app-ui-card>
+  }
 </div>

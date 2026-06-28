@@ -1,78 +1,123 @@
 <div class="space-y-6">
   <app-page-breadcrumb pageTitle="Dashboard" />
 
-  <app-ui-card className="border-brand-500/20 bg-gradient-to-br from-brand-500/10 via-white to-white dark:from-brand-500/10 dark:via-white/[0.02]">
-    <p class="text-sm font-medium text-brand-600 dark:text-brand-400">Agile AI</p>
-    <h1 class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90 sm:text-3xl">{{ greeting }}</h1>
-    <p class="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-      Track projects, active sprints, and team progress at a glance.
+  <section class="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-900 via-brand-800 to-violet-900 p-6 text-white shadow-xl sm:p-8">
+    <p class="text-sm text-white/70">Agile AI workspace</p>
+    <h1 class="mt-2 text-2xl font-bold sm:text-4xl">{{ greeting }}</h1>
+    <p class="mt-2 max-w-2xl text-sm text-white/80">
+      Track sprint contributions, recent work, and AI insights in one place.
     </p>
-  </app-ui-card>
+  </section>
 
-  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    @for (kpi of kpiCards(); track kpi.label) {
-      <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
-        <div class="bg-gradient-to-r p-4 text-white" [ngClass]="kpi.color">
-          <p class="text-xs font-medium uppercase tracking-wide text-white/80">{{ kpi.label }}</p>
-          <p class="mt-2 text-3xl font-bold">{{ kpi.value }}</p>
-        </div>
-        <div class="p-4">
-          <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-            <div class="h-full rounded-full bg-brand-500 transition-all" [style.width.%]="kpi.bar"></div>
-          </div>
-        </div>
+  @if (stats(); as s) {
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+        <p class="text-xs uppercase text-gray-500">My open tasks</p>
+        <p class="mt-2 text-3xl font-bold text-brand-600">{{ s.myOpenTasks }}</p>
       </div>
-    }
-  </div>
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+        <p class="text-xs uppercase text-gray-500">Completed</p>
+        <p class="mt-2 text-3xl font-bold text-emerald-600">{{ s.myDoneTasks }}</p>
+      </div>
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+        <p class="text-xs uppercase text-gray-500">Review returns</p>
+        <p class="mt-2 text-3xl font-bold text-amber-600">{{ s.reviewFailures }}</p>
+      </div>
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+        <p class="text-xs uppercase text-gray-500">Contributors</p>
+        <p class="mt-2 text-3xl font-bold text-violet-600">{{ s.contributorCount }}</p>
+      </div>
+    </div>
 
-  <app-ui-card title="My projects" subtitle="Browse and open your workspaces" [noPadding]="true">
-    <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
+    <div class="grid gap-4 xl:grid-cols-3">
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900 xl:col-span-2">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">Sprint contributions</h2>
+        <p class="text-sm text-gray-500">Tasks in active sprints vs completed</p>
+        <div class="mt-6 flex items-end gap-3 overflow-x-auto pb-2">
+          @for (dev of s.sprintContributions; track dev.developerName) {
+            <div class="flex min-w-[72px] flex-col items-center gap-2">
+              <div class="flex h-32 w-12 items-end justify-center gap-1">
+                <div class="w-4 rounded-t bg-brand-200 dark:bg-brand-500/30" [style.height.%]="contributionHeight(dev.totalTasks - dev.doneTasks, dev.totalTasks)"></div>
+                <div class="w-4 rounded-t bg-brand-600" [style.height.%]="contributionHeight(dev.doneTasks, dev.totalTasks)"></div>
+              </div>
+              <span class="truncate text-center text-[10px] font-medium text-gray-600 dark:text-gray-400">{{ dev.developerName.split(' ')[0] }}</span>
+              <span class="text-[10px] text-gray-400">{{ dev.doneTasks }}/{{ dev.totalTasks }}</span>
+            </div>
+          } @empty {
+            <p class="text-sm text-gray-500">No active sprint data yet.</p>
+          }
+        </div>
+        @if (s.contributorNames.length) {
+          <div class="mt-4 flex flex-wrap gap-2">
+            @for (name of s.contributorNames; track name) {
+              <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">{{ name }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 dark:border-amber-500/20 dark:from-amber-500/10 dark:to-orange-500/5">
+        <h2 class="text-lg font-semibold text-amber-900 dark:text-amber-200">AI recommendations</h2>
+        <p class="mt-3 text-sm leading-relaxed text-amber-900/80 dark:text-amber-100/80">{{ s.aiRecommendation }}</p>
+        <a routerLink="/my-tasks" class="mt-4 inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">View my tasks</a>
+      </div>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 dark:border-white/[0.05] dark:bg-gray-900">
+        <h2 class="font-semibold">Recent tasks</h2>
+        <ul class="mt-4 space-y-3">
+          @for (task of s.recentTasks; track task.issueId) {
+            <li>
+              <a [routerLink]="['/issues', task.issueId]" class="block rounded-lg border border-gray-100 p-3 hover:border-brand-200 dark:border-white/[0.05]">
+                <p class="truncate font-medium text-gray-900 dark:text-white/90">{{ task.title }}</p>
+                <p class="text-xs text-gray-500">{{ task.projectKey }} · {{ task.projectName }}</p>
+              </a>
+            </li>
+          } @empty { <li class="text-sm text-gray-500">No recent tasks</li> }
+        </ul>
+      </div>
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 dark:border-white/[0.05] dark:bg-gray-900">
+        <h2 class="font-semibold">Recent projects</h2>
+        <ul class="mt-4 space-y-3">
+          @for (p of s.recentProjects; track p.projectId) {
+            <li>
+              <a [routerLink]="['/projects', p.projectId]" class="block rounded-lg border border-gray-100 p-3 hover:border-brand-200 dark:border-white/[0.05]">
+                <p class="font-medium text-gray-900 dark:text-white/90">{{ p.projectName }}</p>
+                <p class="text-xs text-gray-500">{{ p.key }} · {{ p.activeSprintName || 'No active sprint' }}</p>
+              </a>
+            </li>
+          } @empty { <li class="text-sm text-gray-500">No recent projects</li> }
+        </ul>
+      </div>
+    </div>
+  }
+
+  <div>
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white/90">My projects</h2>
+        <p class="text-sm text-gray-500">Tap a folder to open your workspace</p>
+      </div>
+    </div>
+    <div class="mb-4">
       <app-search-toolbar placeholder="Search projects…" [total]="store.total()" totalLabel="projects" (searchChange)="onSearch($event)" />
     </div>
 
-    @if (store.loading() && store.items().length === 0) {
-      <div class="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
-        <span class="h-5 w-5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></span>
-        Loading projects…
-      </div>
+    @if (store.loading() && !store.items().length) {
+      <div class="py-16 text-center text-sm text-gray-500">Loading projects…</div>
     } @else if (store.error()) {
-      <div class="m-5"><app-ui-alert [message]="store.error()!" variant="error" /></div>
+      <app-ui-alert [message]="store.error()!" variant="error" />
     } @else if (store.isEmpty()) {
-      <div class="px-5 py-16 text-center">
-        <p class="text-gray-600 dark:text-gray-300">No projects yet</p>
-        <a routerLink="/projects" class="mt-4 inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
-          Create a project
-        </a>
-      </div>
+      <div class="py-16 text-center text-sm text-gray-500">No projects yet</div>
     } @else {
-      <div class="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div class="grid min-w-0 max-w-full gap-5 sm:grid-cols-2 xl:grid-cols-3">
         @for (project of store.items(); track project.id) {
-          <a
-            [routerLink]="['/projects', project.id]"
-            class="group rounded-xl border border-gray-100 p-5 transition hover:border-brand-200 hover:shadow-theme-sm dark:border-white/[0.05] dark:hover:border-brand-500/30"
-          >
-            <span class="rounded-md bg-brand-50 px-2 py-1 text-xs font-semibold uppercase text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-              {{ project.key }}
-            </span>
-            <h3 class="mt-3 font-semibold text-gray-800 group-hover:text-brand-600 dark:text-white/90 dark:group-hover:text-brand-400">
-              {{ project.projectName }}
-            </h3>
-            <p class="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
-              {{ project.projectDescription || 'No description' }}
-            </p>
-            @if (project.activeSprintName) {
-              <p class="mt-3 inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                Active sprint: {{ project.activeSprintName }}
-              </p>
-            } @else {
-              <p class="mt-3 text-xs text-amber-600 dark:text-amber-400">No active sprint</p>
-            }
-          </a>
+          <app-folder-project-card [project]="project" />
         }
       </div>
       <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()" (appInfiniteScroll)="store.loadMore()"></div>
       <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
     }
-  </app-ui-card>
+  </div>
 </div>

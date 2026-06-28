@@ -73,6 +73,19 @@
     </div>
   </app-ui-modal>
 
+  <app-ui-card title="Epics" subtitle="Group user stories under strategic themes">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      @for (epic of epics(); track epic.id) {
+        <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-brand-50/80 to-white p-4 dark:border-white/[0.05] dark:from-brand-500/10 dark:to-gray-900">
+          <h3 class="font-semibold text-gray-900 dark:text-white/90">{{ epic.title }}</h3>
+          <p class="mt-1 text-xs text-gray-500">Epic · backlog container</p>
+        </div>
+      } @empty {
+        <p class="text-sm text-gray-500 sm:col-span-2 lg:col-span-3">No epics yet — create one to organize your backlog like Jira.</p>
+      }
+    </div>
+  </app-ui-card>
+
   <app-ui-card title="User stories" [noPadding]="true">
     <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
       <app-search-toolbar placeholder="Search user stories…" [total]="store.total()" totalLabel="stories" (searchChange)="store.setSearch($event)" />

@@ -5,19 +5,20 @@
     <div>
       <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">User Management</h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Admin-only — paginated list (10 per page) with search and infinite scroll.
+        Manage team accounts — {{ store.pageLimit }} users per page with search.
       </p>
     </div>
-    <button
-      type="button"
-      class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600"
-      (click)="openCreateForm()"
-    >
-      Add user
-    </button>
+    <app-ui-button (pressed)="openCreateForm()">Add user</app-ui-button>
   </div>
 
-  @if (showForm) {
+  <app-ui-modal
+    [isOpen]="showForm"
+    [title]="modalTitle"
+    [subtitle]="selectedUser ? 'Update account details' : 'Create a new team member'"
+    size="lg"
+    [showFooter]="false"
+    (close)="closeForm()"
+  >
     <app-user-form
       [selectedUser]="selectedUser"
       [isSaving]="isSaving"
@@ -26,7 +27,7 @@
       (createUser)="createUser($event)"
       (updateUser)="updateUser($event)"
     />
-  }
+  </app-ui-modal>
 
   <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
     <div class="border-b border-gray-100 px-5 py-4 dark:border-white/[0.05]">
@@ -55,65 +56,57 @@
         <table class="min-w-full">
           <thead class="border-b border-gray-100 dark:border-white/[0.05]">
             <tr>
-              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">User</th>
-              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Role</th>
-              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Filiale</th>
-              <th class="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Phone</th>
-              <th class="px-5 py-3 font-medium text-gray-500 text-end text-theme-xs dark:text-gray-400">Actions</th>
+              <th class="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">User</th>
+              <th class="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">Role</th>
+              <th class="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">Filiale</th>
+              <th class="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400">Phone</th>
+              <th class="px-5 py-3 text-end text-theme-xs font-medium text-gray-500 dark:text-gray-400">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-white/[0.05]">
             @for (user of store.items(); track user.userId) {
-              <tr>
-                <td class="px-5 py-4 sm:px-6 text-start">
+              <tr class="hover:bg-gray-50/50 dark:hover:bg-white/[0.02]">
+                <td class="px-5 py-4 text-start sm:px-6">
                   <div class="flex items-center gap-3">
                     <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
                       {{ initials(user) }}
                     </div>
                     <div>
-                      <span class="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                      <span class="block text-theme-sm font-medium text-gray-800 dark:text-white/90">
                         {{ user.prenom }} {{ user.nom }}
                       </span>
-                      <span class="block text-gray-500 text-theme-xs dark:text-gray-400">
+                      <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
                         {{ user.email }}
                       </span>
                     </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {{ user.role || '-' }}
+                <td class="px-4 py-3 text-start text-theme-sm capitalize text-gray-500 dark:text-gray-400">
+                  {{ user.role || '—' }}
                 </td>
-                <td class="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {{ user.filiale || '-' }}
+                <td class="px-4 py-3 text-start text-theme-sm text-gray-500 dark:text-gray-400">
+                  {{ user.filiale || '—' }}
                 </td>
-                <td class="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {{ user.telephone || '-' }}
+                <td class="px-4 py-3 text-start text-theme-sm text-gray-500 dark:text-gray-400">
+                  {{ user.telephone || '—' }}
                 </td>
                 <td class="px-4 py-3 text-end">
-                  <button
-                    type="button"
-                    class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
-                    (click)="openEditForm(user)"
-                  >
+                  <app-ui-button variant="outline" size="sm" (pressed)="openEditForm(user)">
                     Edit
-                  </button>
+                  </app-ui-button>
                 </td>
               </tr>
             }
           </tbody>
         </table>
       </div>
-      <div
-        appInfiniteScroll
-        [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
-        (appInfiniteScroll)="store.loadMore()"
-      ></div>
-      <app-load-more-footer
-        [loading]="store.loadingMore()"
-        [hasMore]="store.hasMore()"
-        [shown]="store.items().length"
+      <app-table-pagination
+        [page]="store.page()"
+        [limit]="store.pageLimit"
         [total]="store.total()"
-        (loadMore)="store.loadMore()"
+        [loading]="store.loading()"
+        label="users"
+        (pageChange)="onPageChange($event)"
       />
     }
   </div>
