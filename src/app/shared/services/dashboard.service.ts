@@ -23,7 +23,7 @@ import {
   normalizeActiveSprintSummary,
 } from '../utils/domain-normalizers';
 import { PaginatedApiService } from './paginated-api.service';
-import { fetchClientPagedList } from '../utils/list-api.util';
+import { fetchClientPagedList, fetchServerPagedList } from '../utils/list-api.util';
 
 type Raw = Record<string, unknown>;
 
@@ -37,15 +37,11 @@ export class DashboardService {
   ) {}
 
   getMyProjects(query: PaginationQuery): Observable<PagedResult<DashboardProjectSummary>> {
-    return fetchClientPagedList(
+    return fetchServerPagedList(
       this.http,
       `${this.base}/my-projects`,
       query,
       (raw) => normalizeProject(raw),
-      (item, term) =>
-        `${item.projectName} ${item.key} ${item.projectDescription ?? ''}`
-          .toLowerCase()
-          .includes(term),
     );
   }
 

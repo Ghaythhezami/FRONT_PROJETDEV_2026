@@ -28,7 +28,7 @@
   }
 
   <div class="grid gap-6 lg:grid-cols-2">
-    <app-ui-card title="Comments" subtitle="POST /api/Comments">
+    <app-ui-card title="Comments" subtitle="Discuss this task with your team">
       <app-ui-form-textarea
         placeholder="Add a comment…"
         [(ngModel)]="newComment"
@@ -53,7 +53,7 @@
       />
     </app-ui-card>
 
-    <app-ui-card title="Attachments" subtitle="POST /api/Attachments/issue/{id}">
+    <app-ui-card title="Attachments" subtitle="Upload files related to this task">
       <input type="file" class="text-sm" (change)="onFileSelected($event)" />
       <ul class="mt-4 space-y-2">
         @for (a of attachmentStore.items(); track a.id) {
@@ -69,7 +69,7 @@
     </app-ui-card>
   </div>
 
-  <app-ui-card title="Subtasks" subtitle="GET/POST /api/SubTasks · AI /api/ai/generate-subtasks">
+  <app-ui-card title="Subtasks" subtitle="Break this task into smaller steps">
     <div class="flex flex-wrap gap-2">
       <div class="min-w-[200px] flex-1">
         <app-ui-form-field
@@ -84,7 +84,7 @@
       </app-ui-button>
     </div>
     @if (aiSubtasks()) {
-      <pre class="mt-4 whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-xs dark:bg-brand-500/10">{{ aiSubtasks() }}</pre>
+      <div class="mt-4 whitespace-pre-wrap rounded-lg bg-brand-50 p-3 text-sm leading-relaxed dark:bg-brand-500/10">{{ aiSubtasks() }}</div>
     }
     <ul class="mt-4 space-y-2">
       @for (st of subtasks(); track st.id) {

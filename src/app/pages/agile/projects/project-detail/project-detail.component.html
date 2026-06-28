@@ -104,13 +104,33 @@
           @for (sprint of sprintStore.items(); track sprint.id) {
             <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div>
-                <h3 class="font-medium">{{ sprint.name }}</h3>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-medium">{{ sprint.name }}</h3>
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                    [class.bg-brand-50]="sprintStatusLabel(sprint) === 'Active'"
+                    [class.text-brand-700]="sprintStatusLabel(sprint) === 'Active'"
+                    [class.bg-gray-100]="sprintStatusLabel(sprint) === 'Planned'"
+                    [class.text-gray-600]="sprintStatusLabel(sprint) === 'Planned'"
+                    [class.bg-success-50]="sprintStatusLabel(sprint) === 'Closed'"
+                    [class.text-success-700]="sprintStatusLabel(sprint) === 'Closed'"
+                  >
+                    {{ sprintStatusLabel(sprint) }}
+                  </span>
+                </div>
                 <p class="text-xs text-gray-500">{{ sprint.startDate | date: 'shortDate' }} – {{ sprint.endDate | date: 'shortDate' }}</p>
+                @if (isSprintClosed(sprint)) {
+                  <p class="mt-1 text-xs text-gray-400">Closed sprints cannot be restarted.</p>
+                }
               </div>
               <div class="flex gap-2">
                 <a [routerLink]="['/sprints', sprint.id, 'board']" class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-3 py-2 text-sm text-white hover:bg-brand-600">Board</a>
-                <app-ui-button size="sm" variant="outline" (pressed)="startSprint(sprint, $event)">Start</app-ui-button>
-                <app-ui-button size="sm" variant="outline" (pressed)="closeSprint(sprint, $event)">Close</app-ui-button>
+                @if (canStartSprint(sprint)) {
+                  <app-ui-button size="sm" variant="outline" (pressed)="startSprint(sprint, $event)">Start sprint</app-ui-button>
+                }
+                @if (canCloseSprint(sprint)) {
+                  <app-ui-button size="sm" variant="outline" (pressed)="closeSprint(sprint, $event)">Close sprint</app-ui-button>
+                }
               </div>
             </div>
           }
@@ -122,7 +142,7 @@
       <app-ui-modal
         [isOpen]="showSprintModal()"
         title="Create sprint"
-        subtitle="POST /api/Sprints"
+        subtitle="Plan a new iteration for your team"
         size="md"
         [showFooter]="true"
         (close)="showSprintModal.set(false)"
@@ -146,21 +166,20 @@
     }
 
     @if (activeTab() === 'members') {
-      <app-ui-card title="Team members" subtitle="POST /api/ProjectMembers">
+      <app-ui-card title="Team members" subtitle="Invite people to collaborate on this project">
         <div class="mb-4 max-w-lg space-y-3">
           @if (userDirectoryHint()) {
             <p class="text-xs text-gray-500">{{ userDirectoryHint() }}</p>
           }
           <app-infinite-select
-            label="Add member (search)"
-            placeholder="Select user"
+            label="Add member"
+            placeholder="Search and select a user"
             [options]="userSelectOptions()"
             [loading]="userSelectLoading()"
             [value]="newMemberId"
             (valueChange)="newMemberId = $event"
             (search)="loadUserOptions($event)"
           />
-          <app-ui-form-field label="Or paste user ID (UUID)" [(ngModel)]="newMemberId" name="memberUuid" />
           @if (memberActionError()) {
             <app-ui-alert [message]="memberActionError()" variant="error" [dismissible]="true" (dismissed)="memberActionError.set('')" />
           }
@@ -201,14 +220,14 @@
     }
 
     @if (activeTab() === 'ai') {
-      <app-ui-card title="AI assistant" subtitle="/api/ai — standup, release notes, sprint risk">
+      <app-ui-card title="AI assistant" subtitle="Standup summaries, release notes, and sprint risk analysis">
         <div class="flex flex-wrap gap-2">
           <app-ui-button [loading]="isAiLoading()" (pressed)="runAi('standup')">Daily standup</app-ui-button>
           <app-ui-button variant="outline" [loading]="isAiLoading()" (pressed)="runAi('release')">Release notes</app-ui-button>
           <app-ui-button variant="outline" [loading]="isAiLoading()" (pressed)="runAi('risk')">Sprint risk</app-ui-button>
         </div>
         @if (aiOutput()) {
-          <pre class="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm dark:bg-gray-800">{{ aiOutput() }}</pre>
+          <div class="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm leading-relaxed dark:bg-gray-800">{{ aiOutput() }}</div>
         }
       </app-ui-card>
     }

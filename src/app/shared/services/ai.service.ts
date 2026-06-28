@@ -13,6 +13,15 @@ export interface GenerateSubTasksRequest {
   Description?: string;
 }
 
+export interface AiPredictionResponse {
+  predictionType: string;
+  suggestedValue: string;
+  confidenceScore: number;
+  suggestions: string[];
+  /** Formatted text ready for UI display */
+  displayText: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AiService {
   private readonly base = `${API_BASE_URL}/api/ai`;
@@ -21,60 +30,93 @@ export class AiService {
 
   generateDescription(body: GenerateDescriptionRequest): Observable<string> {
     return this.http
-      .post(`${this.base}/generate-description`, body, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .post<AiPredictionResponse | Record<string, unknown>>(`${this.base}/generate-description`, body)
+      .pipe(map((r) => this.normalize(r).displayText));
   }
 
   generateAcceptanceCriteria(body: GenerateDescriptionRequest): Observable<string> {
     return this.http
-      .post(`${this.base}/generate-acceptance-criteria`, body, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .post<AiPredictionResponse | Record<string, unknown>>(`${this.base}/generate-acceptance-criteria`, body)
+      .pipe(map((r) => this.normalize(r).displayText));
   }
 
-  generateSubtasks(body: GenerateSubTasksRequest): Observable<string> {
+  generateSubtasks(body: GenerateSubTasksRequest): Observable<AiPredictionResponse> {
     return this.http
-      .post(`${this.base}/generate-subtasks`, body, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .post<AiPredictionResponse | Record<string, unknown>>(`${this.base}/generate-subtasks`, body)
+      .pipe(map((r) => this.normalize(r)));
   }
 
   predictPriority(userStoryId: string): Observable<string> {
     return this.http
-      .post(`${this.base}/predict-priority/${userStoryId}`, {}, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .post<AiPredictionResponse | Record<string, unknown>>(`${this.base}/predict-priority/${userStoryId}`, {})
+      .pipe(map((r) => this.normalize(r).displayText));
   }
 
   getSprintRisk(sprintId: string): Observable<string> {
     return this.http
-      .get(`${this.base}/sprint-risk/${sprintId}`, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .get<AiPredictionResponse | Record<string, unknown>>(`${this.base}/sprint-risk/${sprintId}`)
+      .pipe(map((r) => this.normalize(r).displayText));
   }
 
   getDailyStandup(projectId: string): Observable<string> {
     return this.http
-      .get(`${this.base}/daily-standup/${projectId}`, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .get<AiPredictionResponse | Record<string, unknown>>(`${this.base}/daily-standup/${projectId}`)
+      .pipe(map((r) => this.normalize(r).displayText));
   }
 
   getReleaseNotes(projectId: string): Observable<string> {
     return this.http
-      .get(`${this.base}/release-notes/${projectId}`, { responseType: 'text' })
-      .pipe(map((r) => this.unwrapText(r)));
+      .get<AiPredictionResponse | Record<string, unknown>>(`${this.base}/release-notes/${projectId}`)
+      .pipe(map((r) => this.normalize(r).displayText));
   }
 
-  private unwrapText(response: string): string {
-    try {
-      const parsed = JSON.parse(response) as Record<string, unknown>;
-      return String(
-        parsed['result'] ??
-          parsed['Result'] ??
-          parsed['content'] ??
-          parsed['Content'] ??
-          parsed['text'] ??
-          parsed['Text'] ??
-          response,
-      );
-    } catch {
-      return response;
+  private normalize(raw: AiPredictionResponse | Record<string, unknown>): AiPredictionResponse {
+    const record = raw as Record<string, unknown>;
+    const suggestions = this.readSuggestions(record);
+    const suggestedValue = String(
+      record['suggestedValue'] ?? record['SuggestedValue'] ?? '',
+    ).trim();
+    const predictionType = String(
+      record['predictionType'] ?? record['PredictionType'] ?? 'AI',
+    );
+    const confidenceScore = Number(
+      record['confidenceScore'] ?? record['ConfidenceScore'] ?? 0,
+    );
+
+    const displayText = this.formatDisplay(suggestedValue, suggestions, predictionType);
+
+    return {
+      predictionType,
+      suggestedValue,
+      confidenceScore,
+      suggestions,
+      displayText,
+    };
+  }
+
+  private readSuggestions(record: Record<string, unknown>): string[] {
+    const raw = record['suggestions'] ?? record['Suggestions'];
+    if (Array.isArray(raw)) {
+      return raw.map((s) => String(s)).filter(Boolean);
     }
+    return [];
+  }
+
+  private formatDisplay(suggestedValue: string, suggestions: string[], predictionType: string): string {
+    if (suggestions.length) {
+      return suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n');
+    }
+    if (suggestedValue.includes('|')) {
+      return suggestedValue
+        .split('|')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join('\n');
+    }
+    if (suggestedValue) {
+      return suggestedValue;
+    }
+    return `No ${predictionType} suggestion available.`;
   }
 }

@@ -5,7 +5,7 @@
     <div>
       <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Backlog</h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Epics, user stories, sprint assignment — aligned with backend CRUD endpoints.
+        Epics, user stories, and sprint assignment — drag-free planning with paginated search.
       </p>
     </div>
     <div class="flex flex-wrap gap-2">
@@ -21,7 +21,7 @@
   <app-ui-modal
     [isOpen]="showEpicModal()"
     title="Create epic"
-    subtitle="POST /api/Epics"
+    subtitle="Create a new epic for this product"
     size="md"
     [showFooter]="true"
     (close)="showEpicModal.set(false)"
@@ -42,7 +42,7 @@
   <app-ui-modal
     [isOpen]="showStoryModal()"
     title="Create user story"
-    subtitle="POST /api/UserStories"
+    subtitle="Add a story to your product backlog"
     size="lg"
     [showFooter]="true"
     (close)="showStoryModal.set(false)"

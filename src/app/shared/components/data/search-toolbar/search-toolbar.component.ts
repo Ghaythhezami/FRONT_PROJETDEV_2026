@@ -45,7 +45,7 @@ export class SearchToolbarComponent {
   @Input() placeholder = 'Search…';
   @Input() total: number | null = null;
   @Input() totalLabel = 'results';
-  @Input() debounceMs = 350;
+  @Input() debounceMs = 1000;
 
   @Output() searchChange = new EventEmitter<string>();
 

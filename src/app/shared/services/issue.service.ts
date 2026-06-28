@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config/api.config';
 import { Issue, ItemStatus } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
 import { normalizeIssue } from '../utils/domain-normalizers';
-import { fetchClientPagedList } from '../utils/list-api.util';
+import { fetchClientPagedList, fetchServerPagedList } from '../utils/list-api.util';
 import { JSON_HEADERS, rawGuidBody } from '../utils/http-body.util';
 import { isUuid } from '../utils/id.util';
 
@@ -46,12 +46,11 @@ export class IssueService {
   }
 
   getMyTasks(query: PaginationQuery): Observable<PagedResult<Issue>> {
-    return fetchClientPagedList(
+    return fetchServerPagedList(
       this.http,
       `${this.base}/my-tasks`,
       query,
       (raw) => normalizeIssue(raw),
-      (item, term) => item.title.toLowerCase().includes(term),
     );
   }
 

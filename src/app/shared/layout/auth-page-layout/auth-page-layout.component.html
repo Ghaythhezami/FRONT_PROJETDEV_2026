@@ -1,30 +1,49 @@
-<div class="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
-  <div
-    class="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0"
-  >
-    <ng-content></ng-content>
+<div class="relative min-h-screen bg-white dark:bg-gray-950">
+  <div class="relative flex min-h-screen w-full flex-col lg:flex-row">
+    <!-- Form panel -->
+    <div class="relative z-10 flex flex-1 flex-col px-6 py-10 sm:px-10 lg:max-w-xl lg:px-14">
+      <ng-content></ng-content>
+    </div>
+
+    <!-- Brand panel -->
     <div
-      class="items-center hidden w-full h-full lg:w-1/2 bg-brand-950 dark:bg-white/5 lg:grid relative"
+      class="relative hidden flex-1 overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-900 lg:flex lg:items-center lg:justify-center"
     >
-      <div class="flex items-center justify-center z-1">
-        <!-- ===== Common Grid Shape Start ===== -->
-        <app-grid-shape />
-        <div class="flex flex-col items-center max-w-xs">
-          <a routerLink="/" class="block mb-4">
-            <img
-              width="231"
-              height="48"
-              src="/images/logo/auth-logo.svg"
-              alt="Logo"
-            />
-          </a>
-          <p class="text-center text-gray-400 dark:text-white/60">
-            Free and Open-Source Tailwind CSS Admin Dashboard Template
-          </p>
+      <div class="auth-glow absolute -left-20 top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl"></div>
+      <div class="auth-glow absolute bottom-10 right-10 h-96 w-96 rounded-full bg-indigo-400/20 blur-3xl"></div>
+
+      <div class="auth-orb absolute left-[15%] top-[20%] h-16 w-16 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md"></div>
+      <div class="auth-orb-delayed absolute right-[18%] top-[35%] h-12 w-12 rounded-full border border-white/15 bg-white/5"></div>
+      <div class="auth-orb absolute bottom-[25%] left-[30%] h-20 w-20 rotate-12 rounded-3xl border border-white/10 bg-gradient-to-br from-white/20 to-transparent"></div>
+
+      <div class="auth-brand relative z-10 max-w-md px-8 text-center text-white">
+        <div class="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 shadow-lg backdrop-blur-md ring-1 ring-white/25">
+          <svg class="h-9 w-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
         </div>
+        <h2 class="text-4xl font-bold tracking-tight">AgileAi</h2>
+        <p class="mt-4 text-base leading-relaxed text-white/80">
+          AI-powered agile delivery — sprints, backlogs, kanban boards, and smart insights in one workspace.
+        </p>
+        <ul class="mt-8 space-y-3 text-left text-sm text-white/75">
+          <li class="flex items-center gap-3">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs">✓</span>
+            Jira-like epics, stories, tasks & subtasks
+          </li>
+          <li class="flex items-center gap-3">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs">✓</span>
+            AI descriptions, standups & sprint risk analysis
+          </li>
+          <li class="flex items-center gap-3">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs">✓</span>
+            Real-time board updates via SignalR
+          </li>
+        </ul>
       </div>
     </div>
-    <div class="fixed z-50 hidden bottom-6 right-6 sm:block">
+
+    <div class="fixed bottom-6 right-6 z-50">
       <app-theme-toggle-two />
     </div>
   </div>

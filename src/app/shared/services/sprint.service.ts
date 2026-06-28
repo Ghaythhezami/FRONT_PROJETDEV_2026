@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config/api.config';
 import { Sprint } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
 import { normalizeSprint } from '../utils/domain-normalizers';
-import { fetchClientPagedList } from '../utils/list-api.util';
+import { fetchServerPagedList } from '../utils/list-api.util';
 
 export interface CreateSprintPayload {
   Name: string;
@@ -26,12 +26,11 @@ export class SprintService {
   constructor(private readonly http: HttpClient) {}
 
   getByProject(projectId: string, query: PaginationQuery): Observable<PagedResult<Sprint>> {
-    return fetchClientPagedList(
+    return fetchServerPagedList(
       this.http,
       `${this.base}/project/${projectId}`,
       query,
       (raw) => normalizeSprint(raw),
-      (item, term) => item.name.toLowerCase().includes(term),
     );
   }
 

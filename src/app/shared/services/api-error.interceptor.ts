@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
+import { extractApiErrorMessage } from '../utils/api-error.util';
 import { ApiFeedbackService } from './api-feedback.service';
 import { AuthService } from './auth.service';
 
@@ -21,7 +22,15 @@ export const apiErrorInterceptor: HttpInterceptorFn = (request, next) => {
       const isAdminUsersList =
         request.url.includes('/api/User/getAll') && error.status === 403;
 
+      const isBackgroundBootstrap =
+        request.url.includes('/api/User/details') ||
+        request.url.includes('/api/Notifications/mine') ||
+        request.url.includes('/hubs/');
+
       if (error.status === 401 && !isAuthRoute) {
+        if (isBackgroundBootstrap) {
+          return throwError(() => error);
+        }
         auth.logout();
         void router.navigate(['/signin'], {
           queryParams: { returnUrl: router.url },
@@ -29,14 +38,8 @@ export const apiErrorInterceptor: HttpInterceptorFn = (request, next) => {
         return throwError(() => error);
       }
 
-      if (!isAdminUsersList && error.status !== 401) {
-        const message =
-          error.error?.message ??
-          error.message ??
-          (error.status === 0
-            ? 'Network error — check that the API is running and reachable.'
-            : `Request failed (${error.status})`);
-        feedback.show(message, 'error');
+      if (!isAdminUsersList && error.status !== 401 && !isBackgroundBootstrap) {
+        feedback.show(extractApiErrorMessage(error), 'error');
       }
 
       return throwError(() => error);

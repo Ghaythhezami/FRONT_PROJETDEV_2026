@@ -4,7 +4,7 @@
 
   @if (authService.isAdmin()) {
     <div class="grid gap-6 lg:grid-cols-2">
-      <app-ui-card title="Send notification" subtitle="POST /api/Notifications/Send">
+      <app-ui-card title="Send notification" subtitle="Notify a team member">
         <form class="space-y-3" (ngSubmit)="sendNotification()">
           <app-ui-form-field label="Receiver user ID" [(ngModel)]="sendForm.receiverId" name="receiverId" [required]="true" />
           <app-ui-form-textarea label="Message" [(ngModel)]="sendForm.description" name="desc" />
@@ -12,7 +12,7 @@
           <app-ui-button type="submit">Send</app-ui-button>
         </form>
       </app-ui-card>
-      <app-ui-card title="Test notification" subtitle="POST /api/Notifications/TTest">
+      <app-ui-card title="Test notification" subtitle="Send a test message">
         <form class="space-y-3" (ngSubmit)="sendTest()">
           <app-ui-form-field label="Receiver user ID" [(ngModel)]="testForm.receiverId" name="testReceiver" [required]="true" />
           <app-ui-form-textarea label="Description" [(ngModel)]="testForm.description" name="testDesc" />
@@ -22,7 +22,7 @@
     </div>
   }
 
-  <app-ui-card title="My notifications" subtitle="GET /api/Notifications/mine" [noPadding]="true">
+  <app-ui-card title="My notifications" subtitle="Recent activity and alerts" [noPadding]="true">
     <ul class="divide-y dark:divide-white/[0.05]">
       @for (n of store.items(); track n.notificationId) {
         <li class="flex items-start justify-between gap-4 px-5 py-4" [class.opacity-60]="n.isRead">

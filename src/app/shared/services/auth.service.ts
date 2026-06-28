@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
-import { Observable, map, switchMap, tap } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { RegisterUserDto } from './user-management.models';
 import {
@@ -21,9 +21,11 @@ const USER_KEY = 'agile_ai_user';
 export class AuthService {
   private readonly apiUrl = `${API_BASE_URL}/api/User`;
   private readonly currentUserSignal = signal<AuthUser | null>(this.readUser());
+  /** Tracks login state reactively — storage alone does not update computed signals. */
+  private readonly sessionActiveSignal = signal(!!this.readStorage(ACCESS_TOKEN_KEY));
 
   readonly currentUser = this.currentUserSignal.asReadonly();
-  readonly isAuthenticated = computed(() => !!this.accessToken);
+  readonly isAuthenticated = computed(() => this.sessionActiveSignal());
   readonly isAdmin = computed(
     () => this.currentUserSignal()?.role?.trim().toLowerCase() === 'admin',
   );
@@ -32,7 +34,11 @@ export class AuthService {
     private readonly http: HttpClient,
     private readonly notificationService: NotificationService,
     private readonly boardSignalrService: BoardSignalrService,
-  ) {}
+  ) {
+    if (this.sessionActiveSignal()) {
+      this.bootstrapRealtimeServices();
+    }
+  }
 
   get accessToken(): string | null {
     return this.readStorage(ACCESS_TOKEN_KEY);
@@ -40,6 +46,11 @@ export class AuthService {
 
   get refreshToken(): string | null {
     return this.readStorage(REFRESH_TOKEN_KEY);
+  }
+
+  /** Used by route guards — reads live token from storage as well as the session signal. */
+  hasValidSession(): boolean {
+    return this.sessionActiveSignal() && !!this.readStorage(ACCESS_TOKEN_KEY);
   }
 
   refreshAccessToken(): Observable<AuthTokens> {
@@ -59,6 +70,7 @@ export class AuthService {
           const storage = localStorage.getItem(ACCESS_TOKEN_KEY) ? localStorage : sessionStorage;
           storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
           storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+          this.sessionActiveSignal.set(true);
         }),
       );
   }
@@ -100,13 +112,19 @@ export class AuthService {
     return this.http.post<TokenApiDto>(`${this.apiUrl}/authenticate`, request).pipe(
       map((tokens) => this.normalizeTokens(tokens)),
       tap((tokens) => this.storeTokens(tokens, rememberMe)),
-      switchMap(() => this.getUserDetails(email)),
+      switchMap(() =>
+        this.getUserDetails(email).pipe(
+          catchError(() => of(this.fallbackUser(email))),
+        ),
+      ),
       tap((user) => this.storeUser(user, rememberMe)),
-      tap(() => {
-        this.notificationService.loadMine().subscribe();
-        this.boardSignalrService.start();
-      }),
     );
+  }
+
+  /** Load notifications and SignalR after navigation — avoids blocking login redirect. */
+  bootstrapRealtimeServices(): void {
+    this.notificationService.loadMine().subscribe({ error: () => undefined });
+    void this.boardSignalrService.start();
   }
 
   getUserDetails(email: string): Observable<AuthUser> {
@@ -122,8 +140,21 @@ export class AuthService {
       storage.removeItem(USER_KEY);
     });
     this.currentUserSignal.set(null);
+    this.sessionActiveSignal.set(false);
     this.notificationService.clear();
     this.boardSignalrService.stop();
+  }
+
+  private fallbackUser(email: string): AuthUser {
+    return {
+      userId: '',
+      nom: '',
+      prenom: email.split('@')[0] ?? 'User',
+      email,
+      telephone: '',
+      role: '',
+      filiale: '',
+    };
   }
 
   private normalizeTokens(tokens: TokenApiDto): AuthTokens {
@@ -154,6 +185,7 @@ export class AuthService {
     this.clearAuthStorage();
     storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
     storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    this.sessionActiveSignal.set(true);
   }
 
   private storeUser(user: AuthUser, rememberMe: boolean): void {
@@ -170,12 +202,7 @@ export class AuthService {
     }
 
     try {
-      const user = JSON.parse(rawUser) as AuthUser;
-      if (this.accessToken) {
-        this.notificationService.loadMine().subscribe();
-        void this.boardSignalrService.start();
-      }
-      return user;
+      return JSON.parse(rawUser) as AuthUser;
     } catch {
       this.clearAuthStorage();
       return null;
@@ -192,5 +219,6 @@ export class AuthService {
       storage.removeItem(REFRESH_TOKEN_KEY);
       storage.removeItem(USER_KEY);
     });
+    this.sessionActiveSignal.set(false);
   }
 }

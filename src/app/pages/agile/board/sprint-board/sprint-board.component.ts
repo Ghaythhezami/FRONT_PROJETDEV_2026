@@ -11,6 +11,11 @@ import { DashboardService } from '../../../../shared/services/dashboard.service'
 import { BoardSignalrService } from '../../../../shared/services/board-signalr.service';
 import { isUuid } from '../../../../shared/utils/id.util';
 import {
+  canTransitionIssue,
+  issueTransitionError,
+} from '../../../../shared/utils/issue-workflow.util';
+import { extractApiErrorMessage } from '../../../../shared/utils/api-error.util';
+import {
   Issue,
   ItemStatus,
   KANBAN_COLUMNS,
@@ -52,6 +57,9 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
   private readonly boardSignalr = inject(BoardSignalrService);
   private readonly toast = inject(ToastService);
   private hubSub?: Subscription;
+  private refreshTimer?: ReturnType<typeof setTimeout>;
+  private boardLoaded = false;
+  private suppressRefreshUntil = 0;
 
   sprintId = '';
   sprintName = signal('');
@@ -82,17 +90,27 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
       return;
     }
     void this.boardSignalr.start();
-    this.hubSub = this.boardSignalr.boardChanged$.subscribe(() => this.loadBoard());
-    this.loadBoard();
+    this.hubSub = this.boardSignalr.boardChanged$.subscribe(() => {
+      if (Date.now() < this.suppressRefreshUntil) {
+        return;
+      }
+      this.scheduleSilentRefresh();
+    });
+    this.loadBoard(true);
     this.loadSprintStories();
   }
 
   ngOnDestroy(): void {
     this.hubSub?.unsubscribe();
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
   }
 
-  loadBoard(): void {
-    this.isLoading.set(true);
+  loadBoard(showSpinner = false): void {
+    if (showSpinner || !this.boardLoaded) {
+      this.isLoading.set(true);
+    }
     this.errorMessage.set('');
 
     this.dashboardService.getSprintBoard(this.sprintId).subscribe({
@@ -105,19 +123,25 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
             issues: columnMap.get(status) ?? [],
           })),
         );
+        this.boardLoaded = true;
         this.isLoading.set(false);
       },
       error: (error) => {
-        this.errorMessage.set(
-          error?.error?.message ?? error?.message ?? 'Unable to load board.',
-        );
+        this.errorMessage.set(extractApiErrorMessage(error, 'Unable to load board.'));
         this.isLoading.set(false);
       },
     });
   }
 
+  private scheduleSilentRefresh(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+    this.refreshTimer = setTimeout(() => this.loadBoard(false), 400);
+  }
+
   private loadSprintStories(): void {
-    this.userStoryService.getBySprint(this.sprintId, { page: 1, limit: 100 }).subscribe({
+    this.userStoryService.getBySprint(this.sprintId, { page: 1, limit: 10 }).subscribe({
       next: (r) => this.sprintStories.set(r.items),
     });
   }
@@ -134,13 +158,13 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
         Order: 0,
       })
       .subscribe({
-        next: () => {
+        next: (created) => {
           this.newIssueTitle = '';
           this.toast.success('Task created.');
-          this.loadBoard();
+          this.applyLocalMove(created.id, Number(created.status) as ItemStatus, created);
         },
         error: (e) =>
-          this.toast.error(e?.error?.message ?? e?.message ?? 'Could not create task.'),
+          this.toast.error(extractApiErrorMessage(e, 'Could not create task.')),
       });
   }
 
@@ -148,17 +172,55 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
     if (Number(issue.status) === newStatus || !isUuid(issue.id)) {
       return;
     }
+
+    if (!canTransitionIssue(issue.status, newStatus)) {
+      this.toast.error(issueTransitionError(issue.status, newStatus));
+      return;
+    }
+
+    const previousColumns = this.columns();
+    this.applyLocalMove(issue.id, newStatus);
     this.movingIssueId.set(issue.id);
+    this.suppressRefreshUntil = Date.now() + 2500;
+
     this.issueService.move(issue.id, { Status: newStatus, Order: issue.order }).subscribe({
       next: () => {
         this.movingIssueId.set(null);
-        this.loadBoard();
       },
       error: (e) => {
         this.movingIssueId.set(null);
-        this.toast.error(e?.error?.message ?? 'Move failed.');
+        this.suppressRefreshUntil = 0;
+        this.columns.set(previousColumns);
+        this.toast.error(extractApiErrorMessage(e, 'Could not move this task.'));
       },
     });
+  }
+
+  private applyLocalMove(issueId: string, newStatus: ItemStatus, replacement?: Issue): void {
+    let movedIssue: Issue | undefined = replacement;
+
+    const without = this.columns().map((col) => ({
+      ...col,
+      issues: col.issues.filter((i) => {
+        if (i.id === issueId) {
+          movedIssue = replacement ?? { ...i, status: newStatus };
+          return false;
+        }
+        return true;
+      }),
+    }));
+
+    if (!movedIssue) {
+      return;
+    }
+
+    this.columns.set(
+      without.map((col) =>
+        col.status === newStatus
+          ? { ...col, issues: [...col.issues, { ...movedIssue!, status: newStatus }] }
+          : col,
+      ),
+    );
   }
 
   onDrop(event: DragEvent, status: ItemStatus): void {
@@ -177,9 +239,15 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
   }
 
   onDragStart(event: DragEvent, issue: Issue): void {
     event.dataTransfer?.setData('issueId', issue.id);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
   }
 }

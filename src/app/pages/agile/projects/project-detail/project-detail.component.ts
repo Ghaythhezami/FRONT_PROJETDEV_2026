@@ -30,6 +30,13 @@ import { InfiniteSelectComponent, SelectOption } from '../../../../shared/compon
 import { UserDirectoryService } from '../../../../shared/services/user-directory.service';
 import { isUuid } from '../../../../shared/utils/id.util';
 import {
+  canCloseSprint,
+  canStartSprint,
+  isSprintClosed,
+  sprintStatusLabel,
+} from '../../../../shared/utils/sprint-status.util';
+import { extractApiErrorMessage } from '../../../../shared/utils/api-error.util';
+import {
   AppAlertComponent,
   AppCardComponent,
   AppModalComponent,
@@ -195,35 +202,50 @@ export class ProjectDetailComponent implements OnInit {
 
   sprintActionError = signal('');
 
+  readonly canStartSprint = canStartSprint;
+  readonly canCloseSprint = canCloseSprint;
+  readonly isSprintClosed = isSprintClosed;
+  readonly sprintStatusLabel = sprintStatusLabel;
+
   startSprint(sprint: Sprint, event: Event): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!canStartSprint(sprint)) {
+      this.toast.warning(
+        isSprintClosed(sprint)
+          ? 'This sprint is closed and cannot be started again.'
+          : 'This sprint is already active.',
+      );
+      return;
+    }
     this.sprintActionError.set('');
     this.sprintService.start(sprint).subscribe({
       next: () => {
         this.sprintStore.loadFirst();
-        this.toast.success(`Sprint "${sprint.name}" started.`);
+        this.loadOverview();
+        this.toast.success(`Sprint "${sprint.name}" is now active. Open the board to track progress.`);
       },
       error: (e) =>
-        this.sprintActionError.set(
-          e?.error?.message ?? e?.message ?? 'Could not start sprint.',
-        ),
+        this.sprintActionError.set(extractApiErrorMessage(e, 'Could not start sprint.')),
     });
   }
 
   closeSprint(sprint: Sprint, event: Event): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!canCloseSprint(sprint)) {
+      this.toast.warning('Only an active sprint can be closed.');
+      return;
+    }
     this.sprintActionError.set('');
     this.sprintService.close(sprint).subscribe({
       next: () => {
         this.sprintStore.loadFirst();
-        this.toast.success(`Sprint "${sprint.name}" closed.`);
+        this.loadOverview();
+        this.toast.success(`Sprint "${sprint.name}" closed. Completed work has been recorded.`);
       },
       error: (e) =>
-        this.sprintActionError.set(
-          e?.error?.message ?? e?.message ?? 'Could not close sprint.',
-        ),
+        this.sprintActionError.set(extractApiErrorMessage(e, 'Could not close sprint.')),
     });
   }
 
@@ -262,7 +284,7 @@ export class ProjectDetailComponent implements OnInit {
       return;
     }
     if (!isUuid(userId)) {
-      this.memberActionError.set('Enter a valid user ID (UUID format).');
+      this.memberActionError.set('Select a user from the list.');
       return;
     }
     this.memberActionError.set('');
@@ -309,8 +331,8 @@ export class ProjectDetailComponent implements OnInit {
     this.userSelectLoading.set(true);
     this.userDirectoryHint.set(
       this.authService.isAdmin()
-        ? 'Search all users (admin).'
-        : 'User search is limited. Paste a user UUID below if the list is empty.',
+        ? 'Search users by name or email.'
+        : 'Search team members to add to this project.',
     );
     this.userDirectory.searchUsers({ page: 1, limit: 10, search }).subscribe({
       next: (result) => {

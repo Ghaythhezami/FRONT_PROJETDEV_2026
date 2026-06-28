@@ -1,21 +1,22 @@
 <div class="space-y-6">
   <app-page-breadcrumb pageTitle="Sprint board" />
 
-  @if (isLoading()) {
+  @if (isLoading() && !columns().length) {
     <div class="py-16 text-center text-sm text-gray-500">Loading board…</div>
   } @else if (errorMessage()) {
     <app-ui-alert [message]="errorMessage()" variant="error" />
   } @else {
     <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-brand-600">Board view</p>
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white/90">
           {{ sprintName() || 'Sprint board' }}
         </h1>
-        <p class="text-sm text-gray-500">Drag cards · PATCH /api/Issues/{{ '{id}' }}/move · SignalR live updates</p>
+        <p class="text-sm text-gray-500">Drag cards between columns to update task status.</p>
       </div>
     </div>
 
-    <app-ui-card title="Add task" subtitle="POST /api/Issues">
+    <app-ui-card title="Add task" subtitle="Create a new task in this sprint">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div class="flex-1">
           <app-ui-form-select
@@ -40,7 +41,7 @@
     <div class="flex gap-4 overflow-x-auto pb-4">
       @for (column of columns(); track column.status) {
         <div
-          class="min-w-[300px] flex-1 rounded-2xl p-3"
+          class="min-w-[320px] flex-1 rounded-2xl p-3 transition-colors"
           [ngClass]="columnUi[column.status].columnBg"
           (dragover)="onDragOver($event)"
           (drop)="onDrop($event, column.status)"
@@ -49,13 +50,13 @@
             <div class="flex items-center gap-2">
               <span class="h-2.5 w-2.5 rounded-full" [ngClass]="columnUi[column.status].dot"></span>
               <h2 class="text-sm font-semibold text-gray-800">{{ columnUi[column.status].label }}</h2>
-              <span class="rounded-full bg-white/80 px-2 py-0.5 text-xs text-gray-600">
+              <span class="rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-gray-600">
                 {{ column.issues.length }}
               </span>
             </div>
           </div>
 
-          <div class="space-y-3 min-h-[420px]">
+          <div class="min-h-[420px] space-y-3">
             @for (issue of column.issues; track issue.id) {
               <app-kanban-card
                 [issue]="issue"

@@ -76,7 +76,15 @@ export class AppSidebarComponent {
   private subscription: Subscription = new Subscription();
 
   get visibleNavItems(): NavItem[] {
-    return this.navItems.filter((item) => item.name !== 'Parametrage' || this.isAdmin);
+    return this.navItems.filter((item) => {
+      if (item.name === 'Notifications') {
+        return false;
+      }
+      if (item.name === 'Parametrage' && !this.isAdmin) {
+        return false;
+      }
+      return true;
+    });
   }
 
   get isAdmin(): boolean {

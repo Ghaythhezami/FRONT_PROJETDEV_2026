@@ -21,6 +21,11 @@ import { IssueService } from '../../../../shared/services/issue.service';
 import { SubtaskService } from '../../../../shared/services/subtask.service';
 import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
 import {
+  canTransitionIssue,
+  issueTransitionError,
+} from '../../../../shared/utils/issue-workflow.util';
+import { extractApiErrorMessage } from '../../../../shared/utils/api-error.util';
+import {
   AppAlertComponent,
   AppCardComponent,
   FormFieldComponent,
@@ -127,6 +132,10 @@ export class IssueDetailComponent implements OnInit {
     if (!current) {
       return;
     }
+    if (!canTransitionIssue(current.status, status)) {
+      this.toast.error(issueTransitionError(current.status, status));
+      return;
+    }
     this.isSaving.set(true);
     this.issueService
       .move(current.id, { Status: status, Order: current.order })
@@ -136,7 +145,10 @@ export class IssueDetailComponent implements OnInit {
           this.isSaving.set(false);
           this.toast.success(`Status updated to ${this.statusLabels[status]}.`);
         },
-        error: () => this.isSaving.set(false),
+        error: (e) => {
+          this.isSaving.set(false);
+          this.toast.error(extractApiErrorMessage(e, 'Could not update status.'));
+        },
       });
   }
 
@@ -219,8 +231,8 @@ export class IssueDetailComponent implements OnInit {
     this.aiService
       .generateSubtasks({ Title: current.title, Description: '' })
       .subscribe({
-        next: (text) => {
-          this.aiSubtasks.set(text);
+        next: (result) => {
+          this.aiSubtasks.set(result.displayText);
           this.isAiLoading.set(false);
           this.toast.info('AI subtask suggestions ready.');
         },
