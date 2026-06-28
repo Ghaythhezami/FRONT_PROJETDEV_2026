@@ -1,14 +1,5 @@
-# Render Blueprint — deploy from branch: adjusted-backend
-# Docs: https://render.com/docs/blueprint-spec
-#
-# After deploy, set Cloudinary env vars in the Render dashboard.
-# Set Cors__AllowedOrigins__0 to your Vercel URL (e.g. https://your-app.vercel.app).
-
-databases:
-  - name: agile-ai-db
-    databaseName: agileai
-    user: agileai
-    plan: free
+# Render Blueprint — branch: adjusted-backend
+# Uses Neon PostgreSQL (set ConnectionStrings__Connection in dashboard).
 
 services:
   - type: web
@@ -25,10 +16,12 @@ services:
         value: Production
       - key: Jwt__Secret
         generateValue: true
+      # Paste Neon URI or Npgsql connection string in Render dashboard:
       - key: ConnectionStrings__Connection
-        fromDatabase:
-          name: agile-ai-db
-          property: connectionString
+        sync: false
+      # Alternative: full postgres:// URI (auto-converted on startup)
+      - key: DATABASE_URL
+        sync: false
       - key: Cloudinary__CloudName
         sync: false
       - key: Cloudinary__ApiKey
@@ -37,6 +30,5 @@ services:
         sync: false
       - key: Cloudinary__Folder
         value: agile-ai
-      # Set after Vercel deploy — replace with your frontend URL
       - key: Cors__AllowedOrigins__0
         sync: false

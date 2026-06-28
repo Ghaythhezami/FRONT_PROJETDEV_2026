@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("AGILE AI Data Layer")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f6490d2875fa6d430922bd788d727467949c5977")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+af5a29b3b67ad686ff60dbe06c8759f33bc6bf3f")]
 [assembly: System.Reflection.AssemblyProductAttribute("AGILE AI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgileAi.Data")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

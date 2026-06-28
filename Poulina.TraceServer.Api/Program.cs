@@ -39,7 +39,9 @@ if (!string.IsNullOrWhiteSpace(port))
 }
 
 var jwtSecret = builder.Configuration["Jwt:Secret"];
-var connectionString = builder.Configuration.GetConnectionString("Connection");
+var connectionString = DatabaseConnectionHelper.ResolveConnectionString(
+    builder.Configuration.GetConnectionString("Connection"),
+    Environment.GetEnvironmentVariable("DATABASE_URL"));
 
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {

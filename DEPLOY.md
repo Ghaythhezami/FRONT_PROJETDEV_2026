@@ -1,60 +1,46 @@
-# Deploy backend to Render (`adjusted-backend` branch)
+# Deploy backend to Render + Neon PostgreSQL
 
-Repo: [Ghaythhezami/projetDev2026](https://github.com/Ghaythhezami/projetDev2026/tree/adjusted-backend)
+Repo: [adjusted-backend](https://github.com/Ghaythhezami/projetDev2026/tree/adjusted-backend)
 
-## Option A — Blueprint (recommended)
+## 1. Neon database
 
-1. Push this repo (including `render.yaml`) to GitHub on branch **`adjusted-backend`**.
-2. In [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**.
-3. Connect `Ghaythhezami/projetDev2026` and select branch **`adjusted-backend`**.
-4. Render creates:
-   - PostgreSQL database `agile-ai-db`
-   - Web service `agile-ai-api` (Docker)
-5. After the first deploy, open the web service → **Environment** and set:
-
-| Variable | Example |
-|----------|---------|
-| `Cloudinary__CloudName` | your cloud name |
-| `Cloudinary__ApiKey` | your API key |
-| `Cloudinary__ApiSecret` | your API secret |
-| `Cloudinary__Folder` | `agile-ai` |
-| `Cors__AllowedOrigins__0` | `https://your-frontend.vercel.app` |
-
-`Jwt__Secret` and `ConnectionStrings__Connection` are auto-set by the blueprint.
-
-6. Copy your service URL (e.g. `https://agile-ai-api.onrender.com`). You need it for Vercel.
-
-## Option B — Manual web service
-
-1. **New → Web Service** → connect repo, branch **`adjusted-backend`**.
-2. **Environment**: Docker  
-   **Dockerfile path**: `Dockerfile` (repo root)  
-   **Docker context**: `.` (repo root)
-
-   Alternative path also works: `Poulina.TraceServer.Api/Dockerfile` with context `.`
-3. Create a **PostgreSQL** database on Render and set:
+1. Create a project in [Neon](https://neon.tech).
+2. Copy the connection string (URI or details tab).
+3. Convert to Npgsql format if needed:
 
 ```
-ConnectionStrings__Connection=Host=...;Port=5432;Database=...;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true
-Jwt__Secret=<long random string>
-ASPNETCORE_ENVIRONMENT=Production
+Host=ep-xxx.us-east-1.aws.neon.tech;Port=5432;Database=neondb;Username=neondb_owner;Password=YOUR_PASSWORD;SSL Mode=Require;Trust Server Certificate=true
 ```
 
-4. Add Cloudinary and CORS variables as in the table above.
-
-## Notes
-
-- The API listens on Render’s `PORT` (handled by `docker-entrypoint.sh`).
-- EF migrations run automatically on startup (`Database.Migrate()`).
-- Demo seed data runs on startup (`DevDataSeeder`).
-- Swagger: `https://<your-service>.onrender.com/swagger/index.html`
-- SignalR hub: `wss://<your-service>.onrender.com/hubs/board` (WebSockets supported on Render web services).
-- Free tier spins down after inactivity; first request may take ~30s.
-
-## Verify
+4. Push tables locally (once):
 
 ```bash
-curl https://<your-service>.onrender.com/swagger/index.html
+cd Poulina.TraceServer.Api
+dotnet ef database update --project ../TraceServer.Data --connection "Host=...;Port=5432;Database=neondb;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
 ```
 
-Login (seeded admin): `admin@agileai.com` / `AgileAdmin@2026!`
+On Render deploy, `Database.Migrate()` also runs on startup.
+
+## 2. Render web service
+
+Branch: **`adjusted-backend`** · Dockerfile: **`Dockerfile`** (repo root) · Context: **`.`**
+
+### Required environment variables
+
+| Variable | Value |
+|----------|--------|
+| `ConnectionStrings__Connection` | Neon Npgsql string (see above) |
+| `Jwt__Secret` | Long random string |
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `Cloudinary__CloudName` | your cloud name |
+| `Cloudinary__ApiKey` | your key |
+| `Cloudinary__ApiSecret` | your secret |
+| `Cors__AllowedOrigins__0` | `https://your-app.vercel.app` |
+
+Optional: set `DATABASE_URL` to the Neon `postgresql://` URI instead of `ConnectionStrings__Connection`.
+
+## 3. Verify
+
+- Swagger: `https://<service>.onrender.com/swagger/index.html`
+- SignalR: `wss://<service>.onrender.com/hubs/board`
+- Seed admin: `admin@agileai.com` / `AgileAdmin@2026!`
