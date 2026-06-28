@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("AGILE AI Dependency Injection Layer")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a17533ad9e6e2e312d2ef49074c7833c9d4277a8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+624ed035001c7ff24ac9628921693dfd4992da20")]
 [assembly: System.Reflection.AssemblyProductAttribute("AGILE AI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgileAi.Ioc")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

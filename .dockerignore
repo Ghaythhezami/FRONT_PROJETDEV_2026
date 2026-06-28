@@ -1,0 +1,16 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/.vs/
+
+# Local secrets
+**/.env
+**/appsettings.Development.json
+
+# Git
+.git
+.gitignore
+
+# Docs / logs
+**/*.md
+UpgradeLog.htm

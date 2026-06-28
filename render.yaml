@@ -1,0 +1,42 @@
+# Render Blueprint — deploy from branch: adjusted-backend
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After deploy, set Cloudinary env vars in the Render dashboard.
+# Set Cors__AllowedOrigins__0 to your Vercel URL (e.g. https://your-app.vercel.app).
+
+databases:
+  - name: agile-ai-db
+    databaseName: agileai
+    user: agileai
+    plan: free
+
+services:
+  - type: web
+    name: agile-ai-api
+    runtime: docker
+    repo: https://github.com/Ghaythhezami/projetDev2026
+    branch: adjusted-backend
+    plan: free
+    dockerfilePath: ./Poulina.TraceServer.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /swagger/v1/swagger.json
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Jwt__Secret
+        generateValue: true
+      - key: ConnectionStrings__Connection
+        fromDatabase:
+          name: agile-ai-db
+          property: connectionString
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
+      - key: Cloudinary__Folder
+        value: agile-ai
+      # Set after Vercel deploy — replace with your frontend URL
+      - key: Cors__AllowedOrigins__0
+        sync: false
