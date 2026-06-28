@@ -1,10 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { InputFieldComponent } from './../../form/input/input-field.component';
 import { ModalService } from '../../../services/modal.service';
 
 import { ModalComponent } from '../../ui/modal/modal.component';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { AuthService } from '../../../services/auth.service';
+import { ProfileService } from '../../../services/profile.service';
 
 @Component({
   selector: 'app-user-meta-card',
@@ -18,8 +19,11 @@ import { AuthService } from '../../../services/auth.service';
 })
 export class UserMetaCardComponent {
   private readonly authService = inject(AuthService);
+  private readonly profileService = inject(ProfileService);
 
   readonly authUser = this.authService.currentUser;
+  photoUploading = signal(false);
+  photoError = signal('');
 
   constructor(
     public modal: ModalService,
@@ -29,7 +33,6 @@ export class UserMetaCardComponent {
   openModal() { this.isOpen = true; }
   closeModal() { this.isOpen = false; }
 
-  // Example user data (could be made dynamic)
   user = {
     firstName: '',
     lastName: '',
@@ -59,12 +62,32 @@ export class UserMetaCardComponent {
       email: user?.email || this.user.email,
       phone: user?.telephone || this.user.phone,
       bio: user?.role || this.user.bio,
+      avatar: user?.photoUrl || this.user.avatar,
     };
   }
 
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.photoError.set('');
+    this.photoUploading.set(true);
+    this.profileService.uploadPhoto(file).subscribe({
+      next: () => {
+        this.photoUploading.set(false);
+        input.value = '';
+      },
+      error: (e) => {
+        this.photoUploading.set(false);
+        this.photoError.set(e?.error?.message ?? 'Could not upload photo.');
+        input.value = '';
+      },
+    });
+  }
+
   handleSave() {
-    // Handle save logic here
-    console.log('Saving changes...');
-    this.modal.closeModal();
+    this.closeModal();
   }
 }

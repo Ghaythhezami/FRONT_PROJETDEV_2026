@@ -102,6 +102,7 @@ export function normalizeIssue(raw: Raw): Issue {
     userStoryId: ['userStoryId', 'UserStoryId'],
     assigneeId: ['assigneeId', 'AssigneeId'],
     assigneeName: ['assigneeName', 'AssigneeName'],
+    assigneeAvatar: ['assigneePhotoUrl', 'AssigneePhotoUrl', 'assigneeAvatar', 'AssigneeAvatar'],
     assignees: ['assignees', 'Assignees'],
     sprintId: ['sprintId', 'SprintId'],
     projectId: ['projectId', 'ProjectId'],
@@ -134,10 +135,19 @@ export function normalizeIssue(raw: Raw): Issue {
       return {
         userId: extractUuid(item, ['userId', 'UserId']) || '',
         name: String(item['name'] ?? item['Name'] ?? '').trim(),
+        photoUrl: String(item['photoUrl'] ?? item['PhotoUrl'] ?? '').trim() || undefined,
       };
     }).filter((a) => a.name || a.userId);
   } else if (issue.assigneeName && issue.assigneeId) {
-    issue.assignees = [{ userId: issue.assigneeId, name: issue.assigneeName }];
+    issue.assignees = [{
+      userId: issue.assigneeId,
+      name: issue.assigneeName,
+      photoUrl: issue.assigneeAvatar,
+    }];
+  }
+
+  if (issue.assigneeAvatar && issue.assignees?.length) {
+    issue.assignees[0].photoUrl = issue.assignees[0].photoUrl || issue.assigneeAvatar;
   }
 
   if (issue.progressPercent === undefined) {

@@ -83,6 +83,7 @@ export interface UserStory {
 export interface IssueAssignee {
   userId: string;
   name: string;
+  photoUrl?: string;
 }
 
 export interface Issue {
@@ -165,6 +166,10 @@ export interface SubTask {
   title: string;
   isCompleted: boolean;
   issueId: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  startDate?: string;
+  dueDate?: string;
 }
 
 export interface DashboardProjectSummary extends Project {
@@ -173,8 +178,14 @@ export interface DashboardProjectSummary extends Project {
 }
 
 export interface HomeDashboardStats {
+  isGlobalView: boolean;
   myOpenTasks: number;
   myDoneTasks: number;
+  globalOpenTasks: number;
+  globalDoneTasks: number;
+  activeSprints: number;
+  totalProjects: number;
+  teamMembers: number;
   reviewFailures: number;
   contributorCount: number;
   contributorNames: string[];

@@ -185,29 +185,31 @@
     }
 
     @if (activeTab() === 'members') {
-      <app-ui-card title="Team members" subtitle="Invite people to collaborate on this project">
-        <div class="mb-4 max-w-lg space-y-3">
-          @if (userDirectoryHint()) {
-            <p class="text-xs text-gray-500">{{ userDirectoryHint() }}</p>
-          }
-          <app-infinite-multi-select
-            label="Add members"
-            placeholder="Search and select team members"
-            [options]="userSelectOptions()"
-            [loading]="userSelectLoading()"
-            [hasMore]="userPickerStore.hasMore()"
-            [values]="newMemberIds"
-            (valuesChange)="newMemberIds = $event"
-            (search)="onUserSearch($event)"
-            (loadMore)="onUserLoadMore()"
-          />
-          @if (memberActionError()) {
-            <app-ui-alert [message]="memberActionError()" variant="error" [dismissible]="true" (dismissed)="memberActionError.set('')" />
-          }
-          <div class="flex flex-wrap gap-2">
-            <app-ui-button (pressed)="addMember()">Add to project</app-ui-button>
+      <app-ui-card title="Team members" [subtitle]="canManageMembers() ? 'Invite people to collaborate on this project' : 'People working on this project'">
+        @if (canManageMembers()) {
+          <div class="mb-4 max-w-lg space-y-3">
+            @if (userDirectoryHint()) {
+              <p class="text-xs text-gray-500">{{ userDirectoryHint() }}</p>
+            }
+            <app-infinite-multi-select
+              label="Add members"
+              placeholder="Search and select team members"
+              [options]="userSelectOptions()"
+              [loading]="userSelectLoading()"
+              [hasMore]="userPickerStore.hasMore()"
+              [values]="newMemberIds"
+              (valuesChange)="newMemberIds = $event"
+              (search)="onUserSearch($event)"
+              (loadMore)="onUserLoadMore()"
+            />
+            @if (memberActionError()) {
+              <app-ui-alert [message]="memberActionError()" variant="error" [dismissible]="true" (dismissed)="memberActionError.set('')" />
+            }
+            <div class="flex flex-wrap gap-2">
+              <app-ui-button (pressed)="addMember()">Add to project</app-ui-button>
+            </div>
           </div>
-        </div>
+        }
         <ul class="divide-y dark:divide-white/[0.05]">
           @for (m of memberStore.items(); track m.id) {
             <li class="flex items-center justify-between py-3">
@@ -215,7 +217,9 @@
                 <p class="font-medium">{{ m.memberName || 'Team member' }}</p>
                 <p class="text-xs text-gray-500">{{ m.memberEmail || m.role || '' }}</p>
               </div>
-              <app-ui-button variant="ghost" size="sm" (pressed)="removeMember(m)">Remove</app-ui-button>
+              @if (canManageMembers()) {
+                <app-ui-button variant="ghost" size="sm" (pressed)="removeMember(m)">Remove</app-ui-button>
+              }
             </li>
           }
         </ul>

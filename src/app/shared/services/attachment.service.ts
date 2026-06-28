@@ -13,19 +13,23 @@ export class AttachmentService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getByIssue(issueId: string, query: PaginationQuery): Observable<PagedResult<Attachment>> {
+  getByIssue(issueId: string, query: PaginationQuery, subTaskId?: string): Observable<PagedResult<Attachment>> {
+    const subTaskParam = subTaskId ? `?subTaskId=${subTaskId}` : '';
     return fetchClientPagedList(
       this.http,
-      `${this.base}/issue/${issueId}`,
+      `${this.base}/issue/${issueId}${subTaskParam}`,
       query,
       (raw) => normalizeAttachment(raw),
       (item, term) => item.fileName.toLowerCase().includes(term),
     );
   }
 
-  upload(issueId: string, file: File): Observable<Attachment> {
+  upload(issueId: string, file: File, subTaskId?: string): Observable<Attachment> {
     const formData = new FormData();
     formData.append('file', file, file.name);
+    if (subTaskId) {
+      formData.append('subTaskId', subTaskId);
+    }
 
     return this.http
       .post<Record<string, unknown>>(`${this.base}/issue/${issueId}`, formData)

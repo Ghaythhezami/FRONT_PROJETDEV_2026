@@ -70,9 +70,11 @@
   } @else if (store.isEmpty()) {
     <div class="py-16 text-center text-sm text-gray-500">No projects yet — create your first workspace.</div>
   } @else {
-    <div class="grid min-w-0 max-w-full gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div class="grid min-w-0 max-w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       @for (project of store.items(); track project.id) {
-        <app-folder-project-card [project]="project" />
+        <div class="min-w-0 max-w-full">
+          <app-folder-project-card [project]="project" />
+        </div>
       }
     </div>
     <div

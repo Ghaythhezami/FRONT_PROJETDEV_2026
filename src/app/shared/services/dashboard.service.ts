@@ -40,8 +40,14 @@ export class DashboardService {
   getHomeStats(): Observable<HomeDashboardStats> {
     return this.http.get<Record<string, unknown>>(`${this.base}/home-stats`).pipe(
       map((raw) => ({
+        isGlobalView: Boolean(raw['isGlobalView'] ?? raw['IsGlobalView'] ?? false),
         myOpenTasks: Number(raw['myOpenTasks'] ?? raw['MyOpenTasks'] ?? 0),
         myDoneTasks: Number(raw['myDoneTasks'] ?? raw['MyDoneTasks'] ?? 0),
+        globalOpenTasks: Number(raw['globalOpenTasks'] ?? raw['GlobalOpenTasks'] ?? 0),
+        globalDoneTasks: Number(raw['globalDoneTasks'] ?? raw['GlobalDoneTasks'] ?? 0),
+        activeSprints: Number(raw['activeSprints'] ?? raw['ActiveSprints'] ?? 0),
+        totalProjects: Number(raw['totalProjects'] ?? raw['TotalProjects'] ?? 0),
+        teamMembers: Number(raw['teamMembers'] ?? raw['TeamMembers'] ?? 0),
         reviewFailures: Number(raw['reviewFailures'] ?? raw['ReviewFailures'] ?? 0),
         contributorCount: Number(raw['contributorCount'] ?? raw['ContributorCount'] ?? 0),
         contributorNames: ((raw['contributorNames'] ?? raw['ContributorNames'] ?? []) as string[]),

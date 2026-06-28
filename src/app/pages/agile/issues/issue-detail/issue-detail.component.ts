@@ -5,12 +5,12 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
 import { LoadMoreFooterComponent } from '../../../../shared/components/data/load-more-footer/load-more-footer.component';
 import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-scroll.directive';
+import { DatePickerComponent } from '../../../../shared/components/form/date-picker/date-picker.component';
 import {
   ITEM_STATUS_COLORS,
   ITEM_STATUS_LABELS,
   Issue,
   ItemStatus,
-  Attachment,
   Comment,
   SubTask,
 } from '../../../../shared/models/domain.models';
@@ -57,6 +57,7 @@ import {
     FormFieldComponent,
     FormTextareaComponent,
     InfiniteSelectComponent,
+    DatePickerComponent,
   ],
   templateUrl: './issue-detail.component.html',
 })
@@ -106,11 +107,13 @@ export class IssueDetailComponent implements OnInit {
     this.commentService.getByIssue(this.issueId, q),
   );
 
-  readonly attachmentStore = new PaginatedListStore<Attachment>((q) =>
-    this.attachmentService.getByIssue(this.issueId, q),
-  );
-
   subtasks = signal<SubTask[]>([]);
+  subtaskComments = signal<Record<string, Comment[]>>({});
+  subtaskCommentDrafts: Record<string, string> = {};
+  subtaskAssigneeDrafts: Record<string, string> = {};
+  subtaskStartDrafts: Record<string, string> = {};
+  subtaskDueDrafts: Record<string, string> = {};
+  expandedSubtaskId = signal<string | null>(null);
 
   readonly assigneePickerHasMore = computed(
     () => this.assigneePickerStore?.hasMore() ?? false,
@@ -147,9 +150,9 @@ export class IssueDetailComponent implements OnInit {
     return match?.[1] ?? null;
   }
 
-  isImageAttachment(attachment: Attachment): boolean {
-    const type = attachment.fileType ?? '';
-    return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(attachment.fileName);
+  isImageAttachment(fileName: string, fileType?: string): boolean {
+    const type = fileType ?? '';
+    return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName);
   }
 
   assignMe(): void {
@@ -220,7 +223,6 @@ export class IssueDetailComponent implements OnInit {
     this.selectedAssigneeId = issue.assigneeId ?? '';
     this.loadSubtasks();
     this.commentStore.loadFirst();
-    this.attachmentStore.loadFirst();
     if (issue.projectId) {
       this.initAssigneePicker(issue.projectId);
     }
@@ -349,7 +351,6 @@ export class IssueDetailComponent implements OnInit {
         ),
       );
       this.commentStore.loadFirst();
-      this.attachmentStore.loadFirst();
       input.value = '';
     };
 
@@ -373,8 +374,100 @@ export class IssueDetailComponent implements OnInit {
     });
   }
 
-  onFileSelected(event: Event): void {
-    this.onCommentFileSelected(event);
+  onSubtaskToggleOpen(subtask: SubTask, open: boolean): void {
+    if (open) {
+      this.expandedSubtaskId.set(subtask.id);
+      this.subtaskAssigneeDrafts[subtask.id] = subtask.assigneeId ?? '';
+      this.subtaskStartDrafts[subtask.id] = subtask.startDate?.slice(0, 10) ?? '';
+      this.subtaskDueDrafts[subtask.id] = subtask.dueDate?.slice(0, 10) ?? '';
+      this.loadSubtaskComments(subtask.id);
+      return;
+    }
+    if (this.expandedSubtaskId() === subtask.id) {
+      this.expandedSubtaskId.set(null);
+    }
+  }
+
+  loadSubtaskComments(subtaskId: string): void {
+    this.commentService.getByIssue(this.issueId, { page: 1, limit: 50 }, subtaskId).subscribe({
+      next: (result) => {
+        this.subtaskComments.update((map) => ({ ...map, [subtaskId]: result.items }));
+      },
+    });
+  }
+
+  saveSubtask(subtask: SubTask): void {
+    this.subtaskService
+      .update(subtask.id, {
+        Title: subtask.title,
+        IsCompleted: subtask.isCompleted,
+        IssueId: subtask.issueId,
+        AssigneeId: this.subtaskAssigneeDrafts[subtask.id] || null,
+        StartDate: this.subtaskStartDrafts[subtask.id] || null,
+        DueDate: this.subtaskDueDrafts[subtask.id] || null,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.subtasks.update((list) => list.map((s) => (s.id === updated.id ? updated : s)));
+          this.toast.success('Subtask updated.');
+        },
+        error: (e) => this.toast.error(extractApiErrorMessage(e, 'Could not update subtask.')),
+      });
+  }
+
+  postSubtaskComment(subtask: SubTask): void {
+    const content = this.subtaskCommentDrafts[subtask.id]?.trim();
+    if (!content) {
+      return;
+    }
+    this.commentService
+      .create({ Content: content, IssueId: this.issueId, SubTaskId: subtask.id })
+      .subscribe({
+        next: () => {
+          this.subtaskCommentDrafts[subtask.id] = '';
+          this.loadSubtaskComments(subtask.id);
+          this.toast.success('Subtask comment posted.');
+        },
+      });
+  }
+
+  onSubtaskFileSelected(subtask: SubTask, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    const isImage = file.type.startsWith('image/');
+    const draft = this.subtaskCommentDrafts[subtask.id]?.trim() ?? '';
+
+    if (isImage && !draft) {
+      this.commentService.createWithAttachment(this.issueId, '', file, subtask.id).subscribe({
+        next: () => {
+          this.loadSubtaskComments(subtask.id);
+          input.value = '';
+          this.toast.success('Photo uploaded to subtask.');
+        },
+        error: (e) => this.toast.error(e?.error?.message ?? 'Upload failed.'),
+      });
+      return;
+    }
+
+    this.attachmentService.upload(this.issueId, file, subtask.id).subscribe({
+      next: () => {
+        this.loadSubtaskComments(subtask.id);
+        input.value = '';
+        this.toast.success('File attached to subtask.');
+      },
+      error: (e) => this.toast.error(e?.error?.message ?? 'Upload failed.'),
+    });
+  }
+
+  onSubtaskStartDateChange(subtaskId: string, event: { dateStr?: string }): void {
+    this.subtaskStartDrafts[subtaskId] = event.dateStr ?? '';
+  }
+
+  onSubtaskDueDateChange(subtaskId: string, event: { dateStr?: string }): void {
+    this.subtaskDueDrafts[subtaskId] = event.dateStr ?? '';
   }
 
   private loadSubtasks(): void {

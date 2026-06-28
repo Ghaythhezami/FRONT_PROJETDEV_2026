@@ -62,10 +62,14 @@ const STATUS_TAG: Partial<Record<ItemStatus, { label: string; cls: string }>> = 
               <a
                 [routerLink]="memberLink(member)"
                 [title]="member.name"
-                class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 ring-2 ring-white transition hover:z-10 hover:scale-110 dark:ring-gray-900"
+                class="inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 ring-2 ring-white transition hover:z-10 hover:scale-110 dark:ring-gray-900"
                 (click)="$event.stopPropagation()"
               >
-                {{ initials(member.name) }}
+                @if (member.photoUrl) {
+                  <img [src]="member.photoUrl" [alt]="member.name" class="h-full w-full object-cover" />
+                } @else {
+                  {{ initials(member.name) }}
+                }
               </a>
             } @empty {
               <span class="text-xs text-gray-400">Unassigned</span>
@@ -127,7 +131,11 @@ export class KanbanCardComponent {
       return this.issue.assignees;
     }
     if (this.issue.assigneeName) {
-      return [{ userId: this.issue.assigneeId ?? '', name: this.issue.assigneeName }];
+      return [{
+        userId: this.issue.assigneeId ?? '',
+        name: this.issue.assigneeName,
+        photoUrl: this.issue.assigneeAvatar,
+      }];
     }
     return [];
   }

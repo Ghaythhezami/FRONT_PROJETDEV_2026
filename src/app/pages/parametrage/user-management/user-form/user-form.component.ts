@@ -34,7 +34,7 @@ export class UserFormComponent {
   @Output() updateUser = new EventEmitter<UpdateUserDto>();
 
   readonly isEditing = computed(() => !!this.selectedUserSignal());
-  readonly roles = ['admin', 'agent de controle', 'analyste'];
+  readonly roles = ['admin', 'po', 'scrum master', 'developer', 'tester', 'analyste'];
 
   form: UserFormModel = this.toFormModel(null);
 
@@ -78,7 +78,7 @@ export class UserFormComponent {
       email: user?.email ?? '',
       password: '',
       telephone: user?.telephone ?? '',
-      role: user?.role || 'analyste',
+      role: user?.role || 'developer',
       filiale: user?.filiale ?? '',
     };
   }

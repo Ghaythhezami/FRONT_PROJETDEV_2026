@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
 import { LoadMoreFooterComponent } from '../../../../shared/components/data/load-more-footer/load-more-footer.component';
 import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
+import { DatePickerComponent } from '../../../../shared/components/form/date-picker/date-picker.component';
 import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-scroll.directive';
 import {
   ITEM_STATUS_COLORS,
@@ -29,6 +30,7 @@ import { AppAlertComponent } from '../../../../shared/ui';
     LoadMoreFooterComponent,
     InfiniteScrollDirective,
     AppAlertComponent,
+    DatePickerComponent,
   ],
   templateUrl: './my-tasks.component.html',
 })
@@ -75,6 +77,16 @@ export class MyTasksComponent implements OnInit {
       error: () => this.filtersError.set('Could not load project filters. Restart the API if you recently updated.'),
     });
     this.store.loadFirst();
+  }
+
+  onStartDateChange(event: { dateStr?: string }): void {
+    this.startDate = event.dateStr ?? '';
+    this.applyFilters();
+  }
+
+  onEndDateChange(event: { dateStr?: string }): void {
+    this.endDate = event.dateStr ?? '';
+    this.applyFilters();
   }
 
   applyFilters(): void {

@@ -90,6 +90,8 @@ export class ProjectDetailComponent implements OnInit {
   private readonly toast = inject(ToastService);
   readonly authService = inject(AuthService);
 
+  readonly canManageMembers = computed(() => this.authService.isAdmin());
+
   project = signal<Project | null>(null);
   isLoadingProject = signal(true);
   projectError = signal('');
@@ -173,7 +175,7 @@ export class ProjectDetailComponent implements OnInit {
       if (!this.memberStore.items().length) {
         this.memberStore.loadFirst();
       }
-      if (!this.userSelectOptions().length && !this.userPickerStore.loading()) {
+      if (this.canManageMembers() && !this.userSelectOptions().length && !this.userPickerStore.loading()) {
         this.onUserSearch('');
       }
     }

@@ -12,6 +12,7 @@ import {
 } from './auth.models';
 import { BoardSignalrService } from './board-signalr.service';
 import { NotificationService } from './notification.service';
+import { isStaffRole } from '../utils/role.util';
 
 const ACCESS_TOKEN_KEY = 'agile_ai_access_token';
 const REFRESH_TOKEN_KEY = 'agile_ai_refresh_token';
@@ -26,9 +27,7 @@ export class AuthService {
 
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly isAuthenticated = computed(() => this.sessionActiveSignal());
-  readonly isAdmin = computed(
-    () => this.currentUserSignal()?.role?.trim().toLowerCase() === 'admin',
-  );
+  readonly isAdmin = computed(() => isStaffRole(this.currentUserSignal()?.role));
 
   constructor(
     private readonly http: HttpClient,
@@ -209,6 +208,15 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  uploadProfilePhoto(file: File): Observable<AuthUser> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<UserResponseDto>(`${this.apiUrl}/profile-photo`, formData).pipe(
+      map((dto) => this.normalizeUser(dto)),
+      tap((user) => this.updateStoredUser(user)),
+    );
+  }
+
   private normalizeUser(user: UserResponseDto): AuthUser {
     return {
       userId: user.UserId ?? user.userId ?? '',
@@ -218,7 +226,14 @@ export class AuthService {
       telephone: user.Telephone ?? user.telephone ?? '',
       role: user.Role ?? user.role ?? '',
       filiale: user.Filiale ?? user.filiale ?? '',
+      photoUrl: user.PhotoUrl ?? user.photoUrl ?? '',
     };
+  }
+
+  updateStoredUser(user: AuthUser): void {
+    const storage = localStorage.getItem(USER_KEY) ? localStorage : sessionStorage;
+    storage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUserSignal.set(user);
   }
 
   private storeTokens(tokens: AuthTokens, rememberMe: boolean): void {

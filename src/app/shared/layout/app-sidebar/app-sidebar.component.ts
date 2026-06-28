@@ -90,7 +90,7 @@ export class AppSidebarComponent {
   }
 
   get isAdmin(): boolean {
-    return this.authService.currentUser()?.role?.trim().toLowerCase() === 'admin';
+    return this.authService.isAdmin();
   }
 
   constructor(

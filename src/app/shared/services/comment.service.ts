@@ -10,6 +10,7 @@ import { fetchClientPagedList } from '../utils/list-api.util';
 export interface CreateCommentPayload {
   Content: string;
   IssueId: string;
+  SubTaskId?: string;
 }
 
 function normalizeComment(raw: Record<string, unknown>): Comment {
@@ -31,10 +32,11 @@ export class CommentService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getByIssue(issueId: string, query: PaginationQuery): Observable<PagedResult<Comment>> {
+  getByIssue(issueId: string, query: PaginationQuery, subTaskId?: string): Observable<PagedResult<Comment>> {
+    const subTaskParam = subTaskId ? `?subTaskId=${subTaskId}` : '';
     return fetchClientPagedList(
       this.http,
-      `${this.base}/issue/${issueId}`,
+      `${this.base}/issue/${issueId}${subTaskParam}`,
       query,
       (raw) => normalizeComment(raw),
       (item, term) => item.content.toLowerCase().includes(term),
@@ -47,11 +49,14 @@ export class CommentService {
       .pipe(map(normalizeComment));
   }
 
-  createWithAttachment(issueId: string, content: string, file: File): Observable<Comment> {
+  createWithAttachment(issueId: string, content: string, file: File, subTaskId?: string): Observable<Comment> {
     const formData = new FormData();
     formData.append('issueId', issueId);
     formData.append('content', content);
     formData.append('file', file, file.name);
+    if (subTaskId) {
+      formData.append('subTaskId', subTaskId);
+    }
     return this.http
       .post<Record<string, unknown>>(`${this.base}/with-attachment`, formData)
       .pipe(map(normalizeComment));

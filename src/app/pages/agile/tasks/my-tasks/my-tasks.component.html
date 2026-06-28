@@ -51,24 +51,20 @@
           </span>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="block text-xs text-sky-700 dark:text-sky-200">
-            Start date
-            <input
-              type="date"
-              class="mt-1 h-10 w-full rounded-lg border border-sky-200 bg-white px-3 text-sm text-gray-900 dark:border-sky-500/30 dark:bg-gray-900 dark:text-gray-100"
-              [(ngModel)]="startDate"
-              (ngModelChange)="applyFilters()"
-            />
-          </label>
-          <label class="block text-xs text-sky-700 dark:text-sky-200">
-            End date
-            <input
-              type="date"
-              class="mt-1 h-10 w-full rounded-lg border border-sky-200 bg-white px-3 text-sm text-gray-900 dark:border-sky-500/30 dark:bg-gray-900 dark:text-gray-100"
-              [(ngModel)]="endDate"
-              (ngModelChange)="applyFilters()"
-            />
-          </label>
+          <app-date-picker
+            id="my-tasks-start"
+            label="Start date"
+            placeholder="Pick start date"
+            [defaultDate]="startDate || undefined"
+            (dateChange)="onStartDateChange($event)"
+          />
+          <app-date-picker
+            id="my-tasks-end"
+            label="End date"
+            placeholder="Pick end date"
+            [defaultDate]="endDate || undefined"
+            (dateChange)="onEndDateChange($event)"
+          />
         </div>
         @if (startDate || endDate) {
           <button type="button" class="mt-3 text-xs font-medium text-sky-700 underline dark:text-sky-200" (click)="clearDates()">
