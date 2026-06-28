@@ -34,14 +34,49 @@ namespace AgileAi.Api.Controllers
         }
 
         [HttpGet("project/{projectId}")]
-        public async Task<IActionResult> GetProjectStaff(Guid projectId)
+        public async Task<IActionResult> GetProjectStaff(
+            Guid projectId,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10,
+            [FromQuery] string search = null)
         {
             if (!await _projectAuthorization.CanAccessProject(projectId))
                 return Forbid();
 
-            var query = new GetListGenericQuery<ProjectMember>(pm => pm.ProjectId == projectId);
-            var result = await _mediator.Send(query);
-            return Ok(result.Select(ToResponse));
+            if (page < 1) page = 1;
+            if (limit < 1) limit = 10;
+            if (limit > 10) limit = 10;
+
+            var query = _context.ProjectMembers
+                .Include(pm => pm.Member)
+                .Where(pm => pm.ProjectId == projectId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(pm =>
+                    pm.Member.Nom.ToLower().Contains(term) ||
+                    pm.Member.Prenom.ToLower().Contains(term) ||
+                    pm.Member.Email.ToLower().Contains(term));
+            }
+
+            var total = await query.CountAsync();
+            var skip = (page - 1) * limit;
+
+            var members = await query
+                .OrderBy(pm => pm.Member.Nom)
+                .Skip(skip)
+                .Take(limit)
+                .ToListAsync();
+
+            return Ok(new PagedResponseDto<ProjectMemberResponseDto>
+            {
+                Items = members.Select(ToResponse),
+                Page = page,
+                Limit = limit,
+                Total = total,
+                HasMore = skip + members.Count < total
+            });
         }
 
         [HttpPost]
@@ -54,7 +89,10 @@ namespace AgileAi.Api.Controllers
                 return Forbid();
 
             var result = await _mediator.Send(new AddProjectMemberCommand(request.ProjectId, request.MemberId));
-            return Ok(ToResponse(result));
+            var loaded = await _context.ProjectMembers
+                .Include(pm => pm.Member)
+                .FirstOrDefaultAsync(pm => pm.ProjectMemberId == result.ProjectMemberId);
+            return Ok(ToResponse(loaded ?? result));
         }
 
         [HttpDelete("{id}")]
@@ -74,11 +112,18 @@ namespace AgileAi.Api.Controllers
 
         private static ProjectMemberResponseDto ToResponse(ProjectMember member)
         {
+            var displayName = member.Member != null
+                ? $"{member.Member.Prenom} {member.Member.Nom}".Trim()
+                : string.Empty;
+
             return new ProjectMemberResponseDto
             {
                 ProjectMemberId = member.ProjectMemberId,
                 ProjectId = member.ProjectId,
-                MemberId = member.MemberId
+                MemberId = member.MemberId,
+                MemberName = displayName,
+                MemberEmail = member.Member?.Email,
+                Role = member.Member?.Role
             };
         }
     }

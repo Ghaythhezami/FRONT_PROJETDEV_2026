@@ -13,10 +13,14 @@ namespace AgileAi.Domain.Handlers
     public class CreateProjectHandler : IRequestHandler<CreateProjectCommand, Project>
     {
         private readonly IGenericRepository<Project> _projectRepository;
+        private readonly IGenericRepository<Epic> _epicRepository;
 
-        public CreateProjectHandler(IGenericRepository<Project> projectRepository)
+        public CreateProjectHandler(
+            IGenericRepository<Project> projectRepository,
+            IGenericRepository<Epic> epicRepository)
         {
             _projectRepository = projectRepository;
+            _epicRepository = epicRepository;
         }
 
         public Task<Project> Handle(CreateProjectCommand request, CancellationToken cancellationToken)
@@ -34,7 +38,7 @@ namespace AgileAi.Domain.Handlers
             if (existingProject != null)
                 throw new ResourceConflictException("Project key already exists.", "PROJECT_KEY_EXISTS");
 
-            var project = new Project
+            var project = _projectRepository.Add(new Project
             {
                 ProjectId = Guid.NewGuid(),
                 ProjectName = request.ProjectName,
@@ -43,9 +47,17 @@ namespace AgileAi.Domain.Handlers
                 OwnerId = request.OwnerId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
-            };
+            });
 
-            return Task.FromResult(_projectRepository.Add(project));
+            _epicRepository.Add(new Epic
+            {
+                EpicId = Guid.NewGuid(),
+                Title = "Main epic",
+                Description = "Default epic for backlog items",
+                ProjectId = project.ProjectId
+            });
+
+            return Task.FromResult(project);
         }
     }
 
@@ -376,8 +388,24 @@ namespace AgileAi.Domain.Handlers
             subTask.Title = request.Title;
             subTask.IsCompleted = request.IsCompleted;
             subTask.IssueId = request.IssueId;
+            subTask.AssigneeId = request.AssigneeId;
+            subTask.StartDate = NormalizeUtc(request.StartDate);
+            subTask.DueDate = NormalizeUtc(request.DueDate);
 
             return Task.FromResult(_subTaskRepository.Put(subTask));
+        }
+
+        private static DateTime? NormalizeUtc(DateTime? value)
+        {
+            if (!value.HasValue)
+            {
+                return null;
+            }
+
+            var date = value.Value;
+            return date.Kind == DateTimeKind.Utc
+                ? date
+                : DateTime.SpecifyKind(date, DateTimeKind.Utc);
         }
     }
 

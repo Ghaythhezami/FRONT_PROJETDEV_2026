@@ -1,0 +1,13 @@
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\bin\Debug\net6.0\AgileAi.Domain.deps.json
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\bin\Debug\net6.0\AgileAi.Domain.dll
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\bin\Debug\net6.0\AgileAi.Domain.pdb
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\TraceServer.Domain.csproj.AssemblyReference.cache
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\TraceServer.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\TraceServer.Domain.AssemblyInfoInputs.cache
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\TraceServer.Domain.AssemblyInfo.cs
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\TraceServer.Domain.csproj.CoreCompileInputs.cache
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\TraceServer.Domain.sourcelink.json
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\AgileAi.Domain.dll
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\refint\AgileAi.Domain.dll
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\AgileAi.Domain.pdb
+C:\Users\dev4\Desktop\web\projetDev2026\TraceServer.Domain\obj\Debug\net6.0\ref\AgileAi.Domain.dll

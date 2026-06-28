@@ -18,6 +18,7 @@ namespace AgileAi.Domain.Models
         public string Telephone { get; set; }
         public string Role { get; set; }
         public string Filiale { get; set; }
+        public string PhotoUrl { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime RefreshTokenExpiryTime { get; set; }
         public string? Token { get; set; }

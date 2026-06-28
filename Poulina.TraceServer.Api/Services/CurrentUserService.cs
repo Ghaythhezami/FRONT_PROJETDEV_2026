@@ -24,11 +24,16 @@ namespace AgileAi.Api.Services
 
         public string Email => User?.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
 
+        public string DisplayName =>
+            User?.FindFirstValue("DisplayName")?.Trim()
+            ?? User?.FindFirstValue(ClaimTypes.Name)?.Trim()
+            ?? Email;
+
         public string Role => User?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
 
         public bool IsAuthenticated => User?.Identity?.IsAuthenticated == true;
 
-        public bool IsAdmin => string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+        public bool IsAdmin => RoleHelper.IsStaffRole(Role);
 
         private ClaimsPrincipal User => _httpContextAccessor.HttpContext?.User;
     }

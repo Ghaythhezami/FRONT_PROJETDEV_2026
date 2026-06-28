@@ -166,17 +166,30 @@ namespace AgileAi.Domain.Commands
 
     public class ToggleSubTaskCommand : IRequest<SubTask>
     {
-        public ToggleSubTaskCommand(Guid subTaskId, string title, bool isCompleted, Guid? issueId)
+        public ToggleSubTaskCommand(
+            Guid subTaskId,
+            string title,
+            bool isCompleted,
+            Guid? issueId,
+            Guid? assigneeId = null,
+            DateTime? startDate = null,
+            DateTime? dueDate = null)
         {
             SubTaskId = subTaskId;
             Title = title;
             IsCompleted = isCompleted;
             IssueId = issueId;
+            AssigneeId = assigneeId;
+            StartDate = startDate;
+            DueDate = dueDate;
         }
 
         public Guid SubTaskId { get; }
         public string Title { get; }
         public bool IsCompleted { get; }
         public Guid? IssueId { get; }
+        public Guid? AssigneeId { get; }
+        public DateTime? StartDate { get; }
+        public DateTime? DueDate { get; }
     }
 }

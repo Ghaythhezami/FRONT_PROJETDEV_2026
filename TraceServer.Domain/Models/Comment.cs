@@ -24,6 +24,7 @@ namespace AgileAi.Domain.Models
         // Foreign Keys
         public Guid IssueId { get; set; }
         public virtual Issue Issue { get; set; }
+        public Guid? SubTaskId { get; set; }
 
         public Guid? AuthorId { get; set; }
 

@@ -34,5 +34,7 @@ namespace AgileAi.Domain.Dto
         public string EntityType { get; set; }
         public Guid? EntityId { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string ActorName { get; set; }
+        public string Description { get; set; }
     }
 }

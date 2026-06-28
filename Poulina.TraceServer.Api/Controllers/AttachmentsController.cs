@@ -1,12 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AgileAi.Api.Hubs;
@@ -29,7 +27,7 @@ namespace AgileAi.Api.Controllers
         private readonly IProjectAuthorizationService _projectAuthorization;
         private readonly IActivityService _activityService;
         private readonly IHubContext<BoardHub> _boardHub;
-        private readonly IWebHostEnvironment _environment;
+        private readonly ICloudinaryStorageService _cloudinary;
         private readonly AppDbContext _context;
 
         public AttachmentsController(
@@ -38,7 +36,7 @@ namespace AgileAi.Api.Controllers
             IProjectAuthorizationService projectAuthorization,
             IActivityService activityService,
             IHubContext<BoardHub> boardHub,
-            IWebHostEnvironment environment,
+            ICloudinaryStorageService cloudinary,
             AppDbContext context)
         {
             _mediator = mediator;
@@ -46,23 +44,36 @@ namespace AgileAi.Api.Controllers
             _projectAuthorization = projectAuthorization;
             _activityService = activityService;
             _boardHub = boardHub;
-            _environment = environment;
+            _cloudinary = cloudinary;
             _context = context;
         }
 
         [HttpGet("issue/{issueId}")]
-        public async Task<IActionResult> GetForIssue(Guid issueId)
+        public async Task<IActionResult> GetForIssue(Guid issueId, [FromQuery] Guid? subTaskId = null)
         {
             if (!await _projectAuthorization.CanAccessIssue(issueId))
                 return Forbid();
 
-            var attachments = await _mediator.Send(new GetListGenericQuery<Attachment>(a => a.IssueId == issueId));
-            return Ok(attachments.Select(ToResponse));
+            var attachments = await _mediator.Send(new GetListGenericQuery<Attachment>(a =>
+                a.IssueId == issueId && !a.isDeleted &&
+                (subTaskId == null ? a.SubTaskId == null : a.SubTaskId == subTaskId)));
+            var uploaderIds = attachments
+                .Where(a => a.UploaderId.HasValue)
+                .Select(a => a.UploaderId.Value)
+                .Distinct()
+                .ToList();
+
+            var uploaders = await _context.Users
+                .Where(u => uploaderIds.Contains(u.UserId))
+                .Select(u => new { u.UserId, Name = (u.Prenom + " " + u.Nom).Trim() })
+                .ToDictionaryAsync(u => u.UserId, u => u.Name);
+
+            return Ok(attachments.Select(a => ToResponse(a, ResolveUploaderName(a.UploaderId, uploaders))));
         }
 
         [HttpPost("issue/{issueId}")]
         [RequestSizeLimit(25_000_000)]
-        public async Task<IActionResult> Upload(Guid issueId, [FromForm] IFormFile file)
+        public async Task<IActionResult> Upload(Guid issueId, [FromForm] IFormFile file, [FromForm] Guid? subTaskId = null)
         {
             if (!await _projectAuthorization.CanAccessIssue(issueId))
                 return Forbid();
@@ -74,36 +85,64 @@ namespace AgileAi.Api.Controllers
                     Code = "FILE_REQUIRED"
                 });
 
-            var uploadsDirectory = Path.Combine(_environment.ContentRootPath, "uploads", "attachments");
-            Directory.CreateDirectory(uploadsDirectory);
-
-            var sanitizedFileName = Path.GetFileName(file.FileName);
-            var storedFileName = $"{Guid.NewGuid():N}{Path.GetExtension(sanitizedFileName)}";
-            var physicalPath = Path.Combine(uploadsDirectory, storedFileName);
-
-            await using (var stream = new FileStream(physicalPath, FileMode.Create))
+            if (_currentUser.UserId == Guid.Empty)
             {
-                await file.CopyToAsync(stream);
+                return Unauthorized(new ApiErrorResponse
+                {
+                    Message = "Could not resolve the signed-in user. Sign out and sign in again.",
+                    Code = "USER_NOT_RESOLVED",
+                });
             }
+
+            var upload = await _cloudinary.UploadAsync(file);
+            var uploaderName = await ResolveCurrentUploaderNameAsync();
 
             var attachment = new Attachment
             {
                 AttachmentId = Guid.NewGuid(),
-                FileName = sanitizedFileName,
-                BlobUrl = $"/uploads/attachments/{storedFileName}",
+                FileName = file.FileName,
+                BlobUrl = upload.Url,
                 FileType = file.ContentType,
-                FileSize = file.Length,
+                FileSize = upload.Bytes,
                 IssueId = issueId,
-                UploaderId = _currentUser.UserId == Guid.Empty ? null : _currentUser.UserId
+                SubTaskId = subTaskId,
+                UploaderId = _currentUser.UserId,
             };
 
             var result = await _mediator.Send(new AddGenericCommand<Attachment>(attachment));
             var projectId = await ResolveProjectId(issueId);
             if (projectId.HasValue)
-                await _activityService.Log(projectId.Value, "AttachmentUploaded", nameof(Attachment), result.AttachmentId);
-            await _boardHub.Clients.Group(issueId.ToString()).SendAsync("AttachmentAdded", ToResponse(result));
+            {
+                var action = string.IsNullOrWhiteSpace(uploaderName)
+                    ? "AttachmentUploaded"
+                    : $"AttachmentUploaded by {uploaderName}";
+                await _activityService.Log(projectId.Value, action, nameof(Attachment), result.AttachmentId);
+            }
 
-            return Ok(ToResponse(result));
+            var response = ToResponse(result, uploaderName);
+            await _boardHub.Clients.Group(issueId.ToString()).SendAsync("AttachmentAdded", response);
+
+            return Ok(response);
+        }
+
+        private async Task<string> ResolveCurrentUploaderNameAsync()
+        {
+            var fromDb = await _context.Users
+                .Where(u => u.UserId == _currentUser.UserId)
+                .Select(u => (u.Prenom + " " + u.Nom).Trim())
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(fromDb))
+                return fromDb;
+
+            return _currentUser.DisplayName;
+        }
+
+        private static string ResolveUploaderName(Guid? uploaderId, System.Collections.Generic.Dictionary<Guid, string> uploaders)
+        {
+            if (uploaderId.HasValue && uploaders.TryGetValue(uploaderId.Value, out var name))
+                return name;
+            return null;
         }
 
         private async Task<Guid?> ResolveProjectId(Guid issueId)
@@ -114,7 +153,7 @@ namespace AgileAi.Api.Controllers
                 .FirstOrDefaultAsync();
         }
 
-        private static AttachmentResponseDto ToResponse(Attachment attachment)
+        private static AttachmentResponseDto ToResponse(Attachment attachment, string uploaderName = null)
         {
             return new AttachmentResponseDto
             {
@@ -124,7 +163,9 @@ namespace AgileAi.Api.Controllers
                 FileType = attachment.FileType,
                 FileSize = attachment.FileSize,
                 IssueId = attachment.IssueId,
-                UploaderId = attachment.UploaderId
+                SubTaskId = attachment.SubTaskId,
+                UploaderId = attachment.UploaderId,
+                UploaderName = uploaderName,
             };
         }
     }

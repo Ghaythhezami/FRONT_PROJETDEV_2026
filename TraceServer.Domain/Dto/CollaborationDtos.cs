@@ -12,6 +12,8 @@ namespace AgileAi.Domain.Dto
 
         [Required]
         public Guid IssueId { get; set; }
+
+        public Guid? SubTaskId { get; set; }
     }
 
     public class CommentResponseDto
@@ -21,7 +23,9 @@ namespace AgileAi.Domain.Dto
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public Guid IssueId { get; set; }
+        public Guid? SubTaskId { get; set; }
         public Guid? AuthorId { get; set; }
+        public string AuthorName { get; set; }
         public IEnumerable<Guid> MentionedUserIds { get; set; } = Array.Empty<Guid>();
     }
 
@@ -33,6 +37,12 @@ namespace AgileAi.Domain.Dto
 
         [Required]
         public Guid IssueId { get; set; }
+
+        public Guid? AssigneeId { get; set; }
+
+        public DateTime? StartDate { get; set; }
+
+        public DateTime? DueDate { get; set; }
     }
 
     public class UpdateSubTaskDto
@@ -44,6 +54,12 @@ namespace AgileAi.Domain.Dto
         public bool IsCompleted { get; set; }
 
         public Guid? IssueId { get; set; }
+
+        public Guid? AssigneeId { get; set; }
+
+        public DateTime? StartDate { get; set; }
+
+        public DateTime? DueDate { get; set; }
     }
 
     public class SubTaskResponseDto
@@ -52,6 +68,10 @@ namespace AgileAi.Domain.Dto
         public string Title { get; set; }
         public bool IsCompleted { get; set; }
         public Guid? IssueId { get; set; }
+        public Guid? AssigneeId { get; set; }
+        public string AssigneeName { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? DueDate { get; set; }
     }
 
     public class AttachmentResponseDto
@@ -62,6 +82,8 @@ namespace AgileAi.Domain.Dto
         public string FileType { get; set; }
         public long FileSize { get; set; }
         public Guid IssueId { get; set; }
+        public Guid? SubTaskId { get; set; }
         public Guid? UploaderId { get; set; }
+        public string UploaderName { get; set; }
     }
 }

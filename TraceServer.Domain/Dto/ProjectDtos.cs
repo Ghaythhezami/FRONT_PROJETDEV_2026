@@ -30,6 +30,8 @@ namespace AgileAi.Domain.Dto
         public bool IsFinished { get; set; }
         public DateTime? FinishedAt { get; set; }
         public int TotalCompletedPoints { get; set; }
+        public string ActiveSprintName { get; set; }
+        public int OpenIssueCount { get; set; }
     }
 
     public class ProjectDetailsDto : ProjectResponseDto

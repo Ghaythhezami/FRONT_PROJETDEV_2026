@@ -45,5 +45,6 @@ namespace AgileAi.Domain.Dto
         public string Telephone { get; set; }
         public string Role { get; set; }
         public string Filiale { get; set; }
+        public string PhotoUrl { get; set; }
     }
 }

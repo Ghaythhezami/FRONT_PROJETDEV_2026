@@ -17,5 +17,8 @@ namespace AgileAi.Domain.Dto
         public Guid ProjectMemberId { get; set; }
         public Guid ProjectId { get; set; }
         public Guid MemberId { get; set; }
+        public string MemberName { get; set; }
+        public string MemberEmail { get; set; }
+        public string Role { get; set; }
     }
 }

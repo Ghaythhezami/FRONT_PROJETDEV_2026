@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -28,12 +29,18 @@ namespace AgileAi.Api.Controllers
         private const int RefreshTokenExpiryDays = 5;
         private readonly string _jwtSecret;
         private readonly ICurrentUserService _currentUser;
+        private readonly ICloudinaryStorageService _cloudinary;
 
-        public UserController(AppDbContext context, IConfiguration configuration, ICurrentUserService currentUser)
+        public UserController(
+            AppDbContext context,
+            IConfiguration configuration,
+            ICurrentUserService currentUser,
+            ICloudinaryStorageService cloudinary)
         {
             _authContext = context;
             _jwtSecret = configuration["Jwt:Secret"];
             _currentUser = currentUser;
+            _cloudinary = cloudinary;
         }
 
         [HttpPost("authenticate")]
@@ -79,7 +86,11 @@ namespace AgileAi.Api.Controllers
             if (!string.IsNullOrEmpty(passMessage))
                 return BadRequest(new { Message = passMessage });
 
-            var validRoles = new List<string> { "admin", "agent de controle", "analyste" };
+            var validRoles = new List<string>
+            {
+                "admin", "po", "product owner", "scrum master", "developer", "tester",
+                "agent de controle", "analyste"
+            };
             if (!validRoles.Contains(roleName.ToLower()))
                 return BadRequest(new { Message = "Invalid role name" });
 
@@ -178,11 +189,70 @@ namespace AgileAi.Api.Controllers
             return Ok(ToUserResponse(user));
         }
 
+        [Authorize]
+        [HttpPost("profile-photo")]
+        [RequestSizeLimit(10_000_000)]
+        public async Task<IActionResult> UploadProfilePhoto([FromForm] IFormFile file)
+        {
+            if (_currentUser.UserId == Guid.Empty)
+            {
+                return Unauthorized(new ApiErrorResponse { Message = "Authentication required.", Code = "UNAUTHORIZED" });
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new ApiErrorResponse { Message = "A photo file is required.", Code = "FILE_REQUIRED" });
+            }
+
+            if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new ApiErrorResponse { Message = "Only image files are allowed.", Code = "INVALID_FILE_TYPE" });
+            }
+
+            var upload = await _cloudinary.UploadAsync(file);
+            var user = await _authContext.Users.FirstOrDefaultAsync(u => u.UserId == _currentUser.UserId);
+            if (user == null)
+            {
+                return NotFound(new ApiErrorResponse { Message = "User not found.", Code = "NOT_FOUND" });
+            }
+
+            user.PhotoUrl = upload.Url;
+            await _authContext.SaveChangesAsync();
+
+            return Ok(ToUserResponse(user));
+        }
+
         [Authorize(Policy = "AdminOnly")]
         [HttpGet("getAll")]
-        public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetAll()
+        public async Task<ActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 5,
+            [FromQuery] string search = null)
         {
-            var users = await _authContext.Users
+            if (page < 1) page = 1;
+            if (limit < 1) limit = 10;
+            if (limit > 10) limit = 10;
+
+            var query = _authContext.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(u =>
+                    u.Nom.ToLower().Contains(term) ||
+                    u.Prenom.ToLower().Contains(term) ||
+                    u.Email.ToLower().Contains(term) ||
+                    u.Role.ToLower().Contains(term));
+            }
+
+            var total = await query.CountAsync();
+            var skip = (page - 1) * limit;
+
+            var users = await query
+                .OrderBy(u => u.Nom)
+                .ThenBy(u => u.Prenom)
+                .Skip(skip)
+                .Take(limit)
                 .Select(user => new UserResponseDto
                 {
                     UserId = user.UserId,
@@ -195,7 +265,14 @@ namespace AgileAi.Api.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(users);
+            return Ok(new PagedResponseDto<UserResponseDto>
+            {
+                Items = users,
+                Page = page,
+                Limit = limit,
+                Total = total,
+                HasMore = skip + users.Count < total
+            });
         }
 
         private string CreateJwt(User user)
@@ -207,6 +284,7 @@ namespace AgileAi.Api.Controllers
                 new Claim(ClaimTypes.Name, user.Nom),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim("UserId", user.UserId.ToString()),
+                new Claim("DisplayName", $"{user.Prenom} {user.Nom}".Trim()),
                 new Claim(ClaimTypes.Role, user.Role)
             });
 
@@ -279,7 +357,8 @@ namespace AgileAi.Api.Controllers
                 Email = user.Email,
                 Telephone = user.Telephone,
                 Role = user.Role,
-                Filiale = user.Filiale
+                Filiale = user.Filiale,
+                PhotoUrl = user.PhotoUrl,
             };
         }
     }

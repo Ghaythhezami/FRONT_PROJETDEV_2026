@@ -19,6 +19,7 @@ namespace AgileAi.Domain.Models
         // Relations
         public Guid IssueId { get; set; }
         public Issue Issue { get; set; }
+        public Guid? SubTaskId { get; set; }
         public Guid? UploaderId { get; set; }
         public bool isDeleted { get; set; } = false;
     }

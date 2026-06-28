@@ -13,9 +13,12 @@ namespace AgileAi.Domain.Models
         public Guid SubTaskId { get; set; } = Guid.NewGuid();
         public string Title { get; set; }
         public bool IsCompleted { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? DueDate { get; set; }
 
         public Guid? IssueId { get; set; }
         public Issue? Issue { get; set; }
+        public Guid? AssigneeId { get; set; }
         public bool isDeleted { get; set; } = false;
 
     }

@@ -46,6 +46,13 @@ namespace AgileAi.Domain.Dto
         public int Order { get; set; }
     }
 
+    public class IssueAssigneeDto
+    {
+        public Guid UserId { get; set; }
+        public string Name { get; set; }
+        public string PhotoUrl { get; set; }
+    }
+
     public class IssueResponseDto
     {
         public Guid IssueId { get; set; }
@@ -54,5 +61,19 @@ namespace AgileAi.Domain.Dto
         public int Order { get; set; }
         public Guid UserStoryId { get; set; }
         public Guid? AssigneeId { get; set; }
+        public string AssigneeName { get; set; }
+        public string AssigneePhotoUrl { get; set; }
+        public Guid? ProjectId { get; set; }
+        public string ProjectName { get; set; }
+        public string ProjectKey { get; set; }
+        public Guid? SprintId { get; set; }
+        public string SprintName { get; set; }
+        public int CommentCount { get; set; }
+        public int AttachmentCount { get; set; }
+        public int SubtaskCount { get; set; }
+        public int CompletedSubtaskCount { get; set; }
+        public int ProgressPercent { get; set; }
+        public System.Collections.Generic.List<IssueAssigneeDto> Assignees { get; set; } =
+            new System.Collections.Generic.List<IssueAssigneeDto>();
     }
 }

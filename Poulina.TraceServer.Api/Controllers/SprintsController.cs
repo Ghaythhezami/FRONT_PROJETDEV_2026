@@ -1,11 +1,13 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using AgileAi.Api.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AgileAi.Data.Context;
 using AgileAi.Domain.Commands;
 using AgileAi.Domain.Dto;
 using AgileAi.Domain.Models;
@@ -20,22 +22,57 @@ namespace AgileAi.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IProjectAuthorizationService _projectAuthorization;
+        private readonly AppDbContext _context;
 
-        public SprintsController(IMediator mediator, IProjectAuthorizationService projectAuthorization)
+        public SprintsController(
+            IMediator mediator,
+            IProjectAuthorizationService projectAuthorization,
+            AppDbContext context)
         {
             _mediator = mediator;
             _projectAuthorization = projectAuthorization;
+            _context = context;
         }
 
         [HttpGet("project/{projectId}")]
-        public async Task<IActionResult> GetSprintsByProject(Guid projectId)
+        public async Task<IActionResult> GetSprintsByProject(
+            Guid projectId,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10,
+            [FromQuery] string search = null)
         {
             if (!await _projectAuthorization.CanAccessProject(projectId))
                 return Forbid();
 
-            var query = new GetListGenericQuery<Sprint>(s => s.ProjectId == projectId);
-            var result = await _mediator.Send(query);
-            return Ok(result.Select(ToResponse));
+            if (page < 1) page = 1;
+            if (limit < 1) limit = 10;
+            if (limit > 100) limit = 100;
+
+            var query = _context.Sprints.Where(s => s.ProjectId == projectId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(s => s.Name.ToLower().Contains(term));
+            }
+
+            var total = await query.CountAsync();
+            var skip = (page - 1) * limit;
+
+            var sprints = await query
+                .OrderByDescending(s => s.StartDate)
+                .Skip(skip)
+                .Take(limit)
+                .ToListAsync();
+
+            return Ok(new PagedResponseDto<SprintResponseDto>
+            {
+                Items = sprints.Select(ToResponse),
+                Page = page,
+                Limit = limit,
+                Total = total,
+                HasMore = skip + sprints.Count < total
+            });
         }
 
         [HttpPost]

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.StaticFiles;
@@ -136,9 +137,21 @@ builder.Services.AddAuthentication(x =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
-    options.AddPolicy("ProjectStaff", policy => policy.RequireRole("admin", "agent de controle", "analyste"));
-    options.AddPolicy("CanUseAi", policy => policy.RequireRole("admin", "analyste"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireAssertion(ctx =>
+        RoleHelper.IsStaffRole(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty)));
+    options.AddPolicy("ProjectStaff", policy => policy.RequireAssertion(ctx =>
+    {
+        var role = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+        var normalized = role.Trim().ToLowerInvariant();
+        return RoleHelper.IsStaffRole(role)
+            || normalized is "developer" or "analyste" or "tester" or "agent de controle";
+    }));
+    options.AddPolicy("CanUseAi", policy => policy.RequireAssertion(ctx =>
+    {
+        var role = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+        var normalized = role.Trim().ToLowerInvariant();
+        return RoleHelper.IsStaffRole(role) || normalized is "developer" or "analyste";
+    }));
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -202,6 +215,9 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IProjectAuthorizationService, ProjectAuthorizationService>();
 builder.Services.AddScoped<IProjectAnalyticsService, ProjectAnalyticsService>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
+builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection("Cloudinary"));
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ICloudinaryStorageService, CloudinaryStorageService>();
 
 
 var app = builder.Build();
@@ -209,7 +225,37 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.EnsureCreated();
+    dbContext.Database.Migrate();
+
+    const string devAdminEmail = "admin@agileai.com";
+    const string devAdminPassword = "AgileAdmin@2026!";
+    if (!dbContext.Users.Any(u => u.Email == devAdminEmail))
+    {
+        var passwordHasher = new PasswordHasher<User>();
+        var devAdmin = new User
+        {
+            UserId = Guid.Parse("a0000001-0000-4000-8000-000000000001"),
+            Nom = "Jeribi",
+            Prenom = "Mohamed",
+            Email = devAdminEmail,
+            Telephone = "00000000",
+            Role = "admin",
+            Filiale = "HQ",
+            isDeleted = false,
+        };
+        devAdmin.MotDePasse = passwordHasher.HashPassword(devAdmin, devAdminPassword);
+        dbContext.Users.Add(devAdmin);
+        dbContext.SaveChanges();
+    }
+    else
+    {
+        var admin = dbContext.Users.First(u => u.Email == devAdminEmail);
+        admin.Nom = "Jeribi";
+        admin.Prenom = "Mohamed";
+        dbContext.SaveChanges();
+    }
+
+    DevDataSeeder.Seed(dbContext, new PasswordHasher<User>());
 }
 
 var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
@@ -257,7 +303,10 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads",
     ContentTypeProvider = new FileExtensionContentTypeProvider()
 });
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseStatusCodePages(async context =>
 {
     var response = context.HttpContext.Response;

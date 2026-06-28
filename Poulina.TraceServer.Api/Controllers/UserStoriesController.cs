@@ -34,25 +34,89 @@ namespace AgileAi.Api.Controllers
         }
 
         [HttpGet("backlog/{projectId}")]
-        public async Task<IActionResult> GetProductBacklog(Guid projectId)
+        public async Task<IActionResult> GetProductBacklog(
+            Guid projectId,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10,
+            [FromQuery] string search = null)
         {
             if (!await _projectAuthorization.CanAccessProject(projectId))
                 return Forbid();
 
-            var query = new GetListGenericQuery<UserStory>(us => us.SprintId == null && us.Epic.ProjectId == projectId);
-            var result = await _mediator.Send(query);
-            return Ok(result.Select(ToResponse));
+            if (page < 1) page = 1;
+            if (limit < 1) limit = 10;
+            if (limit > 100) limit = 100;
+
+            var query = _context.UserStories
+                .Where(us => us.SprintId == null && us.Epic.ProjectId == projectId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(us =>
+                    us.Title.ToLower().Contains(term) ||
+                    (us.Description != null && us.Description.ToLower().Contains(term)));
+            }
+
+            var total = await query.CountAsync();
+            var skip = (page - 1) * limit;
+
+            var stories = await query
+                .OrderByDescending(us => us.StoryPoints)
+                .ThenBy(us => us.Title)
+                .Skip(skip)
+                .Take(limit)
+                .ToListAsync();
+
+            return Ok(new PagedResponseDto<UserStoryResponseDto>
+            {
+                Items = stories.Select(ToResponse),
+                Page = page,
+                Limit = limit,
+                Total = total,
+                HasMore = skip + stories.Count < total
+            });
         }
 
         [HttpGet("sprint/{sprintId}")]
-        public async Task<IActionResult> GetSprintStories(Guid sprintId)
+        public async Task<IActionResult> GetSprintStories(
+            Guid sprintId,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10,
+            [FromQuery] string search = null)
         {
             if (!await _projectAuthorization.CanAccessSprint(sprintId))
                 return Forbid();
 
-            var query = new GetListGenericQuery<UserStory>(us => us.SprintId == sprintId);
-            var result = await _mediator.Send(query);
-            return Ok(result.Select(ToResponse));
+            if (page < 1) page = 1;
+            if (limit < 1) limit = 10;
+            if (limit > 100) limit = 100;
+
+            var query = _context.UserStories.Where(us => us.SprintId == sprintId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(us => us.Title.ToLower().Contains(term));
+            }
+
+            var total = await query.CountAsync();
+            var skip = (page - 1) * limit;
+
+            var stories = await query
+                .OrderBy(us => us.Title)
+                .Skip(skip)
+                .Take(limit)
+                .ToListAsync();
+
+            return Ok(new PagedResponseDto<UserStoryResponseDto>
+            {
+                Items = stories.Select(ToResponse),
+                Page = page,
+                Limit = limit,
+                Total = total,
+                HasMore = skip + stories.Count < total
+            });
         }
 
         [HttpPost]
