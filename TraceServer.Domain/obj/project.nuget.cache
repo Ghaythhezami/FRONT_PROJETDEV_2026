@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "w1WgvY4BdbQ=",
+  "dgSpecHash": "iqVdIEotV2Q=",
   "success": true,
   "projectFilePath": "C:\\Users\\dev4\\Desktop\\web\\projetDev2026\\TraceServer.Domain\\TraceServer.Domain.csproj",
   "expectedPackageFiles": [
@@ -66,15 +66,5 @@
     "C:\\Users\\dev4\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\6.0.36\\microsoft.windowsdesktop.app.ref.6.0.36.nupkg.sha512",
     "C:\\Users\\dev4\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\6.0.36\\microsoft.aspnetcore.app.ref.6.0.36.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1900",
-      "level": "Warning",
-      "message": "Error occurred while getting package vulnerability data: Unable to load the service index for source https://api.nuget.org/v3/index.json.",
-      "projectPath": "C:\\Users\\dev4\\Desktop\\web\\projetDev2026\\TraceServer.Domain\\TraceServer.Domain.csproj",
-      "warningLevel": 1,
-      "filePath": "C:\\Users\\dev4\\Desktop\\web\\projetDev2026\\TraceServer.Domain\\TraceServer.Domain.csproj",
-      "targetGraphs": []
-    }
-  ]
+  "logs": []
 }

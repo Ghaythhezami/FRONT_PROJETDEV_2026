@@ -82,7 +82,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(DatabaseConnectionHelper.Normalize(connectionString)));
 
 
 builder.Services.AddAuthentication(x =>
@@ -337,7 +337,8 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads",
     ContentTypeProvider = new FileExtensionContentTypeProvider()
 });
-if (!app.Environment.IsDevelopment())
+// Render terminates TLS at the edge; the container receives HTTP — skip redirect.
+if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PORT")))
 {
     app.UseHttpsRedirection();
 }
