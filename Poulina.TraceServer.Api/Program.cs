@@ -256,6 +256,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IProjectAuthorizationService, ProjectAuthorizationService>();
 builder.Services.AddScoped<IProjectAnalyticsService, ProjectAnalyticsService>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
+builder.Services.AddScoped<IWebPushNotificationService, WebPushNotificationService>();
 builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection("Cloudinary"));
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICloudinaryStorageService, CloudinaryStorageService>();

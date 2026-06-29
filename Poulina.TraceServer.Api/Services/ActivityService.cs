@@ -13,15 +13,18 @@ namespace AgileAi.Api.Services
         private readonly AppDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly IHubContext<BoardHub> _boardHub;
+        private readonly IWebPushNotificationService _webPush;
 
         public ActivityService(
             AppDbContext context,
             ICurrentUserService currentUser,
-            IHubContext<BoardHub> boardHub)
+            IHubContext<BoardHub> boardHub,
+            IWebPushNotificationService webPush)
         {
             _context = context;
             _currentUser = currentUser;
             _boardHub = boardHub;
+            _webPush = webPush;
         }
 
         public async Task Log(Guid projectId, string action, string entityType, Guid? entityId)
@@ -59,6 +62,8 @@ namespace AgileAi.Api.Services
             await _boardHub.Clients
                 .Group(BoardHub.GetNotificationGroup(receiverId))
                 .SendAsync("NotificationReceived", ToResponse(notification));
+
+            await _webPush.SendToUserAsync(receiverId, "Agile Ai", message, link);
         }
 
         private static NotificationResponseDto ToResponse(Notification notification)

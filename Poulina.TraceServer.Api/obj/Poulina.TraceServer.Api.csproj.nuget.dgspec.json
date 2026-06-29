@@ -45,7 +45,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
         },
@@ -113,6 +113,10 @@
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[5.1.0, )"
+            },
+            "WebPush": {
+              "target": "Package",
+              "version": "[1.0.12, )"
             }
           },
           "imports": [
@@ -191,7 +195,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
         },
@@ -304,7 +308,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
         },
@@ -404,7 +408,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
         },

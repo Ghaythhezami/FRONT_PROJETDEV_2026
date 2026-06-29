@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AgileAi.Data.Context;
 using AgileAi.Domain.Dto;
+using AgileAi.Domain.Models;
 
 namespace AgileAi.Api.Controllers
 {
@@ -18,15 +19,92 @@ namespace AgileAi.Api.Controllers
         private readonly AppDbContext _context;
         private readonly ICurrentUserService _currentUser;
         private readonly IActivityService _activityService;
+        private readonly IWebPushNotificationService _webPush;
 
         public NotificationsController(
             AppDbContext context,
             ICurrentUserService currentUser,
-            IActivityService activityService)
+            IActivityService activityService,
+            IWebPushNotificationService webPush)
         {
             _context = context;
             _currentUser = currentUser;
             _activityService = activityService;
+            _webPush = webPush;
+        }
+
+        [AllowAnonymous]
+        [HttpGet("vapid-public-key")]
+        public IActionResult GetVapidPublicKey()
+        {
+            if (!_webPush.IsConfigured || string.IsNullOrWhiteSpace(_webPush.PublicKey))
+                return Ok(new VapidPublicKeyResponseDto { PublicKey = null });
+
+            return Ok(new VapidPublicKeyResponseDto { PublicKey = _webPush.PublicKey });
+        }
+
+        [HttpPost("push-subscribe")]
+        public async Task<IActionResult> PushSubscribe([FromBody] PushSubscriptionRequestDto request)
+        {
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Endpoint) ||
+                string.IsNullOrWhiteSpace(request.P256dh) ||
+                string.IsNullOrWhiteSpace(request.Auth))
+            {
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "Endpoint, P256dh, and Auth are required.",
+                    Code = "PUSH_SUBSCRIPTION_INVALID",
+                });
+            }
+
+            var userId = _currentUser.UserId;
+            var endpoint = request.Endpoint.Trim();
+            var existing = await _context.PushSubscriptions
+                .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Endpoint == endpoint);
+
+            if (existing == null)
+            {
+                _context.PushSubscriptions.Add(new Domain.Models.PushSubscription
+                {
+                    PushSubscriptionId = Guid.NewGuid(),
+                    UserId = userId,
+                    Endpoint = endpoint,
+                    P256dh = request.P256dh.Trim(),
+                    Auth = request.Auth.Trim(),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                });
+            }
+            else
+            {
+                existing.P256dh = request.P256dh.Trim();
+                existing.Auth = request.Auth.Trim();
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpDelete("push-subscribe")]
+        public async Task<IActionResult> PushUnsubscribe([FromBody] PushSubscriptionRequestDto request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Endpoint))
+                return BadRequest();
+
+            var userId = _currentUser.UserId;
+            var endpoint = request.Endpoint.Trim();
+            var rows = await _context.PushSubscriptions
+                .Where(ps => ps.UserId == userId && ps.Endpoint == endpoint)
+                .ToListAsync();
+
+            if (rows.Count == 0)
+                return NotFound();
+
+            _context.PushSubscriptions.RemoveRange(rows);
+            await _context.SaveChangesAsync();
+            return Ok();
         }
 
         [HttpGet("mine")]

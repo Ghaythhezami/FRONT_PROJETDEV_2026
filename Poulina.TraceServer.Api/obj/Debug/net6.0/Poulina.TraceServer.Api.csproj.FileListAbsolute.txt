@@ -296,3 +296,5 @@ C:\Users\dev4\Desktop\web\projetDev2026\Poulina.TraceServer.Api\obj\Debug\net6.0
 C:\Users\dev4\Desktop\web\projetDev2026\Poulina.TraceServer.Api\obj\Debug\net6.0\Poulina.TraceServer.Api.genruntimeconfig.cache
 C:\Users\dev4\Desktop\web\projetDev2026\Poulina.TraceServer.Api\obj\Debug\net6.0\ref\AgileAi.Api.dll
 C:\Users\dev4\Desktop\web\projetDev2026\Poulina.TraceServer.Api\bin\Debug\net6.0\appsettings.Production.json
+C:\Users\dev4\Desktop\web\projetDev2026\Poulina.TraceServer.Api\bin\Debug\net6.0\BouncyCastle.Crypto.dll
+C:\Users\dev4\Desktop\web\projetDev2026\Poulina.TraceServer.Api\bin\Debug\net6.0\WebPush.dll

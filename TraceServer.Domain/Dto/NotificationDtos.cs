@@ -25,6 +25,18 @@ namespace AgileAi.Domain.Dto
         public Guid? ReceiverId { get; set; }
     }
 
+    public class PushSubscriptionRequestDto
+    {
+        public string Endpoint { get; set; }
+        public string P256dh { get; set; }
+        public string Auth { get; set; }
+    }
+
+    public class VapidPublicKeyResponseDto
+    {
+        public string PublicKey { get; set; }
+    }
+
     public class ActivityLogResponseDto
     {
         public Guid ActivityLogId { get; set; }

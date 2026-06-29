@@ -31,6 +31,7 @@ namespace AgileAi.Data.Context
         public DbSet<ScrumCeremony> ScrumCeremonies { get; set; }
         public DbSet<AIPredictionLog> AIPredictionLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<PushSubscription> PushSubscriptions { get; set; }
         public DbSet<ActivityLog> ActivityLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -116,6 +117,16 @@ namespace AgileAi.Data.Context
             modelBuilder.Entity<Project>()
                 .HasIndex(p => p.Key)
                 .IsUnique();
+
+            modelBuilder.Entity<PushSubscription>()
+                .HasIndex(ps => new { ps.UserId, ps.Endpoint })
+                .IsUnique();
+
+            modelBuilder.Entity<PushSubscription>()
+                .HasOne(ps => ps.User)
+                .WithMany()
+                .HasForeignKey(ps => ps.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
              modelBuilder.Entity<User>().HasData(
      new User
