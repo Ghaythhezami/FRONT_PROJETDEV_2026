@@ -17,7 +17,7 @@ namespace AgileAi.Api.Services
                 return null;
             }
 
-            return Normalize(raw);
+            return Enrich(Normalize(raw));
         }
 
         public static string Normalize(string connectionString)
@@ -36,6 +36,38 @@ namespace AgileAi.Api.Services
             }
 
             return ConvertPostgresUri(trimmed);
+        }
+
+        public static string Enrich(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return connectionString;
+            }
+
+            var builder = connectionString;
+
+            if (!builder.Contains("Timeout=", StringComparison.OrdinalIgnoreCase))
+            {
+                builder += ";Timeout=30";
+            }
+
+            if (!builder.Contains("Command Timeout=", StringComparison.OrdinalIgnoreCase))
+            {
+                builder += ";Command Timeout=60";
+            }
+
+            if (!builder.Contains("Pooling=", StringComparison.OrdinalIgnoreCase))
+            {
+                builder += ";Pooling=true;Minimum Pool Size=0;Maximum Pool Size=20";
+            }
+
+            if (!builder.Contains("Keepalive=", StringComparison.OrdinalIgnoreCase))
+            {
+                builder += ";Keepalive=30";
+            }
+
+            return builder;
         }
 
         private static string ConvertPostgresUri(string uri)

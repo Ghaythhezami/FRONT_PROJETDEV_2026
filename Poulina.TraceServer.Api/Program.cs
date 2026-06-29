@@ -59,30 +59,45 @@ builder.Services.AddCors(options =>
 {
     var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
         ?.Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Select(origin => origin.Trim().TrimEnd('/'))
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
     options.AddPolicy("CorsPolicy", policy =>
     {
-        if (corsOrigins != null && corsOrigins.Length > 0)
-        {
-            policy.WithOrigins(corsOrigins)
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials();
-        }
-        else
-        {
-            policy.AllowAnyMethod()
-                .AllowAnyHeader()
-                .SetIsOriginAllowed(_ => true)
-                .AllowCredentials();
-        }
+        policy.AllowAnyMethod()
+            .AllowAnyHeader()
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                {
+                    return false;
+                }
+
+                var normalized = origin.Trim().TrimEnd('/');
+
+                if (corsOrigins != null &&
+                    corsOrigins.Any(o => string.Equals(o, normalized, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+
+                if (Uri.TryCreate(normalized, UriKind.Absolute, out var uri) &&
+                    uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return corsOrigins == null || corsOrigins.Length == 0;
+            })
+            .AllowCredentials();
     });
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(DatabaseConnectionHelper.Normalize(connectionString)));
+    options.UseNpgsql(
+        connectionString,
+        npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
 
 
 builder.Services.AddAuthentication(x =>
@@ -255,41 +270,79 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+var databaseReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+Exception databaseInitError = null;
+
+_ = Task.Run(async () =>
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.Migrate();
-
-    const string devAdminEmail = "admin@agileai.com";
-    const string devAdminPassword = "AgileAdmin@2026!";
-    if (!dbContext.Users.Any(u => u.Email == devAdminEmail))
+    try
     {
-        var passwordHasher = new PasswordHasher<User>();
-        var devAdmin = new User
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        await dbContext.Database.MigrateAsync();
+
+        const string devAdminEmail = "admin@agileai.com";
+        const string devAdminPassword = "AgileAdmin@2026!";
+        if (!await dbContext.Users.AnyAsync(u => u.Email == devAdminEmail))
         {
-            UserId = Guid.Parse("a0000001-0000-4000-8000-000000000001"),
-            Nom = "Jeribi",
-            Prenom = "Mohamed",
-            Email = devAdminEmail,
-            Telephone = "00000000",
-            Role = "admin",
-            Filiale = "HQ",
-            isDeleted = false,
-        };
-        devAdmin.MotDePasse = passwordHasher.HashPassword(devAdmin, devAdminPassword);
-        dbContext.Users.Add(devAdmin);
-        dbContext.SaveChanges();
+            var passwordHasher = new PasswordHasher<User>();
+            var devAdmin = new User
+            {
+                UserId = Guid.Parse("a0000001-0000-4000-8000-000000000001"),
+                Nom = "Jeribi",
+                Prenom = "Mohamed",
+                Email = devAdminEmail,
+                Telephone = "00000000",
+                Role = "admin",
+                Filiale = "HQ",
+                isDeleted = false,
+            };
+            devAdmin.MotDePasse = passwordHasher.HashPassword(devAdmin, devAdminPassword);
+            dbContext.Users.Add(devAdmin);
+            await dbContext.SaveChangesAsync();
+        }
+
+        if (!await dbContext.Projects.AnyAsync())
+        {
+            DevDataSeeder.Seed(dbContext, new PasswordHasher<User>());
+        }
+
+        databaseReady.TrySetResult(true);
     }
-    else
+    catch (Exception ex)
     {
-        var admin = dbContext.Users.First(u => u.Email == devAdminEmail);
-        admin.Nom = "Jeribi";
-        admin.Prenom = "Mohamed";
-        dbContext.SaveChanges();
+        databaseInitError = ex;
+        databaseReady.TrySetResult(false);
+    }
+});
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+app.Use(async (context, next) =>
+{
+    if (DatabaseInitializationExtensions.IsWarmupExemptPath(context.Request.Path))
+    {
+        await next();
+        return;
     }
 
-    DevDataSeeder.Seed(dbContext, new PasswordHasher<User>());
-}
+    await databaseReady.Task;
+
+    if (databaseInitError != null)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "Database is still initializing. Retry in a few seconds.",
+            code = "DB_INIT",
+        });
+        return;
+    }
+
+    await next();
+});
 
 var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(Path.Combine(uploadsPath, "attachments"));
