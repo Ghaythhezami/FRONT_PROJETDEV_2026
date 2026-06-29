@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
+import { SplashService } from '../../../services/splash.service';
 import { UiButtonComponent } from '../../../ui/button/ui-button.component';
 
 @Component({
@@ -43,6 +44,7 @@ export class SigninFormComponent {
     private readonly authService: AuthService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
+    private readonly splash: SplashService,
   ) {
     const prefillEmail = this.route.snapshot.queryParamMap.get('email');
     if (prefillEmail) {
@@ -74,6 +76,7 @@ export class SigninFormComponent {
       .subscribe({
         next: () => {
           const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
+          this.splash.show();
           this.authService.bootstrapRealtimeServices();
           void this.router.navigateByUrl(returnUrl, { replaceUrl: true });
         },

@@ -10,11 +10,11 @@
       <nav class="landing-nav-links">
         <a href="#features">Features</a>
         <a href="#workflow">Workflow</a>
-        <a routerLink="/signin">Sign in</a>
+        <a href="/signin" (click)="navigateWithSplash('/signin', $event)">Sign in</a>
       </nav>
       <div class="landing-nav-actions">
         <app-theme-toggle-two />
-        <a routerLink="/signin" class="landing-btn landing-btn-primary">Get started</a>
+        <a href="/signin" class="landing-btn landing-btn-primary" (click)="navigateWithSplash('/signin', $event)">Get started</a>
       </div>
     </header>
 
@@ -28,8 +28,8 @@
         AgileAi brings kanban boards, backlog management, AI-assisted planning, and real-time notifications into a single professional workspace.
       </p>
       <div class="landing-hero-actions">
-        <a routerLink="/signin" class="landing-btn landing-btn-white">Start building</a>
-        <a routerLink="/signup" class="landing-btn landing-btn-ghost-light">Create account</a>
+        <a href="/signin" class="landing-btn landing-btn-white" (click)="navigateWithSplash('/signin', $event)">Start building</a>
+        <a href="/signup" class="landing-btn landing-btn-ghost-light" (click)="navigateWithSplash('/signup', $event)">Create account</a>
       </div>
     </section>
   </div>
@@ -42,18 +42,18 @@
           <span></span><span></span><span></span>
         </div>
         <span class="landing-preview-title">NovaBoard — Sprint 2 · Mobile release</span>
-        <span class="landing-preview-badge">Live sync</span>
+        <span class="landing-preview-badge" [class.landing-preview-badge-pulse]="livePulse()">Live sync</span>
       </div>
 
       <div class="landing-board">
-        @for (column of kanbanColumns; track column.name; let ci = $index) {
-          <div class="landing-column {{ column.tone }}" [style.animation-delay]="`${ci * 120}ms`">
+        @for (column of demoColumns(); track column.name + boardTick(); let ci = $index) {
+          <div class="landing-column {{ column.tone }} landing-column-live" [style.animation-delay]="`${ci * 120}ms`">
             <div class="landing-column-head">
               <span>{{ column.name }}</span>
               <span class="landing-column-count">{{ column.cards.length }}</span>
             </div>
-            @for (card of column.cards; track card.title) {
-              <article class="landing-card">
+            @for (card of column.cards; track card.title + boardTick()) {
+              <article class="landing-card landing-card-live">
                 <span class="landing-priority {{ priorityClass(card.priority) }}">{{ card.priority }}</span>
                 <h3>{{ card.title }}</h3>
                 <p>{{ card.note }}</p>
@@ -120,7 +120,7 @@
       <img src="/images/logo/logo-icon.svg" alt="" class="landing-cta-logo" aria-hidden="true" />
       <h2>Ready to open your sprint board?</h2>
       <p>Sign in with your team account or create one and start planning today.</p>
-      <a routerLink="/signin" class="landing-btn landing-btn-primary landing-btn-lg">Go to login</a>
+      <a href="/signin" class="landing-btn landing-btn-primary landing-btn-lg" (click)="navigateWithSplash('/signin', $event)">Go to login</a>
     </div>
   </section>
 

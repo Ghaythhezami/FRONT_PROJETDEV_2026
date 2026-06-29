@@ -64,7 +64,7 @@
   </div>
 
   @if (store.loading() && !store.items().length) {
-    <div class="py-16 text-center text-sm text-gray-500">Loading projects…</div>
+    <app-logo-loader [fullscreen]="true" />
   } @else if (store.error()) {
     <app-ui-alert [message]="store.error()!" variant="error" />
   } @else if (store.isEmpty()) {

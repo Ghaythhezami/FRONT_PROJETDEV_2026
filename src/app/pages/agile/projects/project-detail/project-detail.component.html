@@ -11,7 +11,7 @@
   <app-page-breadcrumb [pageTitle]="project()?.projectName ?? 'Project'" />
 
   @if (isLoadingProject()) {
-    <div class="py-12 text-center text-sm text-gray-500">Loading…</div>
+    <app-logo-loader [fullscreen]="true" />
   } @else if (projectError()) {
     <app-ui-alert [message]="projectError()" variant="error" />
   } @else if (project(); as p) {

@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
+import { AppLogoLoaderComponent } from '../../../../shared/components/common/app-logo-loader/app-logo-loader.component';
 import { LoadMoreFooterComponent } from '../../../../shared/components/data/load-more-footer/load-more-footer.component';
 import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
 import { InfiniteScrollDirective } from '../../../../shared/directives/infinite-scroll.directive';
@@ -38,6 +39,7 @@ import {
     AppModalComponent,
     AppCardComponent,
     AppAlertComponent,
+    AppLogoLoaderComponent,
     UiButtonComponent,
     FormFieldComponent,
     FormTextareaComponent,

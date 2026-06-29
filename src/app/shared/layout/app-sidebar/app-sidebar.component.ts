@@ -207,6 +207,12 @@ export class AppSidebarComponent {
     }).unsubscribe();
   }
 
+  logout(): void {
+    this.authService.logout();
+    this.sidebarService.setMobileOpen(false);
+    void this.router.navigate(['/signin']);
+  }
+
   profileInitials(user: { prenom?: string; nom?: string }): string {
     return ((user.prenom?.[0] ?? '') + (user.nom?.[0] ?? '')).toUpperCase() || 'U';
   }

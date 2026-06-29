@@ -1,7 +1,8 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { ThemeToggleTwoComponent } from '../../shared/components/common/theme-toggle-two/theme-toggle-two.component';
 import { ThemeService } from '../../shared/services/theme.service';
+import { SplashService } from '../../shared/services/splash.service';
 
 interface LandingFeature {
   title: string;
@@ -35,6 +36,14 @@ const LANDING_PREV_THEME_KEY = 'agileai-landing-prev-theme';
 })
 export class LandingPageComponent implements OnInit, OnDestroy {
   private readonly themeService = inject(ThemeService);
+  private readonly splash = inject(SplashService);
+  private readonly router = inject(Router);
+  private demoInterval?: ReturnType<typeof setInterval>;
+  private snapshotIndex = 0;
+
+  readonly livePulse = signal(false);
+  readonly boardTick = signal(0);
+  readonly demoColumns = signal<KanbanColumn[]>([]);
 
   readonly features: LandingFeature[] = [
     {
@@ -75,46 +84,51 @@ export class LandingPageComponent implements OnInit, OnDestroy {
     { n: '03', title: 'Deliver with visibility', desc: 'Track subtasks, comments, attachments, and AI insights until done.' },
   ];
 
-  readonly kanbanColumns: KanbanColumn[] = [
-    {
-      name: 'To do',
-      tone: 'col-todo',
-      cards: [
-        { title: 'Design notification banner', note: 'Mobile push + in-app center', priority: 'Medium', progress: 35, assignees: 2, comments: 3 },
-      ],
-    },
-    {
-      name: 'In progress',
-      tone: 'col-progress',
-      cards: [
-        { title: 'Kanban drag-and-drop', note: 'Optimistic UI + SignalR sync', priority: 'High', progress: 68, assignees: 3, comments: 5 },
-      ],
-    },
-    {
-      name: 'In review',
-      tone: 'col-review',
-      cards: [
-        { title: 'Sprint velocity widget', note: 'Chart.js + dashboard API', priority: 'Medium', progress: 90, assignees: 1, comments: 2 },
-      ],
-    },
-    {
-      name: 'Done',
-      tone: 'col-done',
-      cards: [
-        { title: 'JWT authentication', note: 'Role-based guards shipped', priority: 'Low', progress: 100, assignees: 2, comments: 4 },
-      ],
-    },
+  private readonly boardSnapshots: KanbanColumn[][] = [
+    [
+      { name: 'To do', tone: 'col-todo', cards: [{ title: 'Design notification banner', note: 'Mobile push + in-app center', priority: 'Medium', progress: 35, assignees: 2, comments: 3 }] },
+      { name: 'In progress', tone: 'col-progress', cards: [{ title: 'Kanban drag-and-drop', note: 'Optimistic UI + SignalR sync', priority: 'High', progress: 68, assignees: 3, comments: 5 }] },
+      { name: 'In review', tone: 'col-review', cards: [{ title: 'Sprint velocity widget', note: 'Chart.js + dashboard API', priority: 'Medium', progress: 90, assignees: 1, comments: 2 }] },
+      { name: 'Done', tone: 'col-done', cards: [{ title: 'JWT authentication', note: 'Role-based guards shipped', priority: 'Low', progress: 100, assignees: 2, comments: 4 }] },
+    ],
+    [
+      { name: 'To do', tone: 'col-todo', cards: [{ title: 'Profile photo upload', note: 'Cloudinary signed URLs', priority: 'Low', progress: 10, assignees: 1, comments: 1 }] },
+      { name: 'In progress', tone: 'col-progress', cards: [{ title: 'Design notification banner', note: 'Mobile push + in-app center', priority: 'Medium', progress: 55, assignees: 2, comments: 4 }] },
+      { name: 'In review', tone: 'col-review', cards: [{ title: 'Kanban drag-and-drop', note: 'Optimistic UI + SignalR sync', priority: 'High', progress: 92, assignees: 3, comments: 6 }] },
+      { name: 'Done', tone: 'col-done', cards: [{ title: 'JWT authentication', note: 'Role-based guards shipped', priority: 'Low', progress: 100, assignees: 2, comments: 4 }] },
+    ],
+    [
+      { name: 'To do', tone: 'col-todo', cards: [] },
+      { name: 'In progress', tone: 'col-progress', cards: [{ title: 'Profile photo upload', note: 'Cloudinary signed URLs', priority: 'Low', progress: 40, assignees: 1, comments: 2 }] },
+      { name: 'In review', tone: 'col-review', cards: [{ title: 'Design notification banner', note: 'Mobile push + in-app center', priority: 'Medium', progress: 88, assignees: 2, comments: 5 }] },
+      { name: 'Done', tone: 'col-done', cards: [{ title: 'Kanban drag-and-drop', note: 'Optimistic UI + SignalR sync', priority: 'High', progress: 100, assignees: 3, comments: 7 }, { title: 'JWT authentication', note: 'Role-based guards shipped', priority: 'Low', progress: 100, assignees: 2, comments: 4 }] },
+    ],
+    [
+      { name: 'To do', tone: 'col-todo', cards: [{ title: 'Sprint risk AI report', note: 'OpenAI + backlog context', priority: 'High', progress: 5, assignees: 2, comments: 0 }] },
+      { name: 'In progress', tone: 'col-progress', cards: [{ title: 'Sprint velocity widget', note: 'Chart.js + dashboard API', priority: 'Medium', progress: 72, assignees: 1, comments: 3 }] },
+      { name: 'In review', tone: 'col-review', cards: [{ title: 'Profile photo upload', note: 'Cloudinary signed URLs', priority: 'Low', progress: 95, assignees: 1, comments: 2 }] },
+      { name: 'Done', tone: 'col-done', cards: [{ title: 'Design notification banner', note: 'Shipped to production', priority: 'Medium', progress: 100, assignees: 2, comments: 8 }] },
+    ],
   ];
 
   ngOnInit(): void {
     this.themeService.setTheme('light');
+    this.demoColumns.set(structuredClone(this.boardSnapshots[0]));
+    this.demoInterval = setInterval(() => this.advanceDemoBoard(), 3800);
   }
 
   ngOnDestroy(): void {
+    clearInterval(this.demoInterval);
     if (sessionStorage.getItem(LANDING_PREV_THEME_KEY) === 'dark') {
       sessionStorage.removeItem(LANDING_PREV_THEME_KEY);
       this.themeService.setTheme('dark');
     }
+  }
+
+  navigateWithSplash(path: string, event: Event): void {
+    event.preventDefault();
+    this.splash.show();
+    window.setTimeout(() => void this.router.navigate([path]), 80);
   }
 
   priorityClass(priority: KanbanCard['priority']): string {
@@ -126,5 +140,13 @@ export class LandingPageComponent implements OnInit, OnDestroy {
       default:
         return 'priority-medium';
     }
+  }
+
+  private advanceDemoBoard(): void {
+    this.snapshotIndex = (this.snapshotIndex + 1) % this.boardSnapshots.length;
+    this.boardTick.update((v) => v + 1);
+    this.livePulse.set(true);
+    this.demoColumns.set(structuredClone(this.boardSnapshots[this.snapshotIndex]));
+    window.setTimeout(() => this.livePulse.set(false), 700);
   }
 }

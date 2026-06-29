@@ -92,7 +92,7 @@
     </div>
 
     @if (store.loading() && !store.items().length) {
-      <div class="py-16 text-center text-sm text-gray-500">Loading backlog…</div>
+      <app-logo-loader [fullscreen]="true" />
     } @else if (store.error()) {
       <div class="m-5"><app-ui-alert [message]="store.error()!" variant="error" /></div>
     } @else {

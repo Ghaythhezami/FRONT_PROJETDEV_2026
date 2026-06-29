@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { AppLogoLoaderComponent } from '../../../../shared/components/common/app-logo-loader/app-logo-loader.component';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
 import { LoadMoreFooterComponent } from '../../../../shared/components/data/load-more-footer/load-more-footer.component';
 import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
@@ -37,6 +38,7 @@ import {
     FormFieldComponent,
     FormTextareaComponent,
     FolderProjectCardComponent,
+    AppLogoLoaderComponent,
   ],
   templateUrl: './project-list.component.html',
 })

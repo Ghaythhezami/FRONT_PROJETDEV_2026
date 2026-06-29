@@ -3,6 +3,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { AppLogoLoaderComponent } from '../../../../shared/components/common/app-logo-loader/app-logo-loader.component';
 import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
 import { KanbanCardComponent } from '../../../../shared/components/agile/kanban-card/kanban-card.component';
 import { IssueService } from '../../../../shared/services/issue.service';
@@ -39,6 +40,7 @@ import {
     FormsModule,
     RouterModule,
     PageBreadcrumbComponent,
+    AppLogoLoaderComponent,
     KanbanCardComponent,
     AppAlertComponent,
     UiButtonComponent,
