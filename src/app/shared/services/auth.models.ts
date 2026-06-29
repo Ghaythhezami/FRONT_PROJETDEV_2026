@@ -24,7 +24,6 @@ export interface UserResponseDto {
   email?: string;
   telephone?: string;
   role?: string;
-  Filiale?: string;
   filiale?: string;
   PhotoUrl?: string;
   photoUrl?: string;
