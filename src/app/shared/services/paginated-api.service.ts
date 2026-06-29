@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
-import { parsePagedResponse } from '../utils/api.util';
+import { parsePagedResponse, buildServerPaginationParams } from '../utils/api.util';
 import { fetchClientPagedList } from '../utils/list-api.util';
 
 type Raw = Record<string, unknown>;
@@ -24,7 +24,8 @@ export class PaginatedApiService {
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-    return this.http.get<unknown>(url).pipe(
+    const params = buildServerPaginationParams(query);
+    return this.http.get<unknown>(url, { params }).pipe(
       map((body) => parsePagedResponse<T>(body, page, limit)),
     );
   }

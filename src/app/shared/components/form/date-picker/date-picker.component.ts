@@ -26,13 +26,14 @@ export class DatePickerComponent {
   ngAfterViewInit() {
     this.flatpickrInstance = flatpickr(this.dateInput.nativeElement, {
       mode: this.mode,
-      static: true,
+      static: false,
+      appendTo: document.body,
       monthSelectorType: 'static',
       dateFormat: 'Y-m-d',
       defaultDate: this.defaultDate,
       onChange: (selectedDates, dateStr, instance) => {
         this.dateChange.emit({ selectedDates, dateStr, instance });
-      }
+      },
     });
   }
 

@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../config/api.config';
 import { Project } from '../models/domain.models';
 import { PagedResult, PaginationQuery } from '../models/pagination.models';
 import { normalizeProject } from '../utils/domain-normalizers';
-import { PaginatedApiService } from './paginated-api.service';
+import { fetchServerPagedList } from '../utils/list-api.util';
 
 export interface CreateProjectPayload {
   ProjectName: string;
@@ -17,10 +17,7 @@ export interface CreateProjectPayload {
 export class ProjectService {
   private readonly base = `${API_BASE_URL}/api/Projects`;
 
-  constructor(
-    private readonly http: HttpClient,
-    private readonly paginatedApi: PaginatedApiService,
-  ) {}
+  constructor(private readonly http: HttpClient) {}
 
   getById(id: string): Observable<Project> {
     return this.http
@@ -36,13 +33,11 @@ export class ProjectService {
 
   /** Paginated list via my-projects dashboard endpoint */
   getMyProjects(query: PaginationQuery): Observable<PagedResult<Project>> {
-    return this.paginatedApi
-      .getPaged<Record<string, unknown>>(`${API_BASE_URL}/api/Dashboard/my-projects`, query)
-      .pipe(
-        map((result) => ({
-          ...result,
-          items: result.items.map((item) => normalizeProject(item)),
-        })),
-      );
+    return fetchServerPagedList(
+      this.http,
+      `${API_BASE_URL}/api/Dashboard/my-projects`,
+      query,
+      normalizeProject,
+    );
   }
 }

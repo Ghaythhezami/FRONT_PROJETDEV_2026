@@ -10,7 +10,7 @@
   </section>
 
   @if (stats(); as s) {
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       @if (s.isGlobalView) {
         <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
           <p class="text-xs uppercase text-gray-500">Open tasks (all projects)</p>
@@ -23,10 +23,6 @@
         <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
           <p class="text-xs uppercase text-gray-500">Active sprints</p>
           <p class="mt-2 text-3xl font-bold text-violet-600">{{ s.activeSprints }}</p>
-        </div>
-        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
-          <p class="text-xs uppercase text-gray-500">Projects · team</p>
-          <p class="mt-2 text-3xl font-bold text-amber-600">{{ s.totalProjects }} · {{ s.teamMembers }}</p>
         </div>
       } @else {
         <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
