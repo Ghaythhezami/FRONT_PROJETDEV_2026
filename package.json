@@ -7,7 +7,8 @@
     "prestart": "node scripts/generate-env.mjs",
     "start": "ng serve",
     "prebuild": "node scripts/generate-env.mjs",
-    "build": "ng build",
+    "build": "node node_modules/@angular/cli/bin/ng.js build",
+    "vercel-build": "node scripts/generate-env.mjs && node node_modules/@angular/cli/bin/ng.js build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },

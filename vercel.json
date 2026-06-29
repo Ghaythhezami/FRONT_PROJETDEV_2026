@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "npm run build",
+  "installCommand": "npm install --include=dev",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/ng-tailadmin/browser",
   "rewrites": [
     {
