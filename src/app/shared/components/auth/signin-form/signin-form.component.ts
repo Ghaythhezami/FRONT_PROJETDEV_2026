@@ -78,6 +78,12 @@ export class SigninFormComponent {
           void this.router.navigateByUrl(returnUrl, { replaceUrl: true });
         },
         error: (error) => {
+          const status = error?.status;
+          if (status === 504 || status === 503 || status === 0) {
+            this.errorMessage =
+              'The server is waking up (Render free tier). Wait a moment and try again.';
+            return;
+          }
           this.errorMessage =
             error?.error?.message ?? error?.message ?? 'Sign in failed. Please check your credentials.';
         },

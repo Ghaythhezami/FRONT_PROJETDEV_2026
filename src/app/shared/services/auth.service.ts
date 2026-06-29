@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
-import { Observable, catchError, map, of, switchMap, tap } from 'rxjs';
+import { Observable, catchError, map, of, retry, switchMap, tap, timer } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { RegisterUserDto } from './user-management.models';
 import {
@@ -110,6 +110,16 @@ export class AuthService {
     };
 
     return this.http.post<TokenApiDto>(`${this.apiUrl}/authenticate`, request).pipe(
+      retry({
+        count: 2,
+        delay: (error, retryCount) => {
+          const status = error?.status;
+          if (status !== 504 && status !== 503 && status !== 0) {
+            throw error;
+          }
+          return timer(retryCount * 4000);
+        },
+      }),
       map((tokens) => this.normalizeTokens(tokens)),
       tap((tokens) => this.storeTokens(tokens, rememberMe)),
       switchMap(() =>
