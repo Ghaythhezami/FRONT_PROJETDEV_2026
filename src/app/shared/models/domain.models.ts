@@ -49,6 +49,7 @@ export interface Project {
   activeSprintName?: string;
   defaultEpicId?: string;
   openIssueCount?: number;
+  isFinished?: boolean;
 }
 
 export interface Epic {

@@ -29,6 +29,7 @@ const STATUS_TAG: Partial<Record<ItemStatus, { label: string; cls: string }>> = 
       [class.opacity-60]="dragging"
       [class.scale-[0.98]]="dragging"
       (dragstart)="dragStart.emit($event)"
+      (dragend)="dragEnd.emit()"
     >
       <div class="mb-3 flex items-start justify-between gap-2">
         @if (statusTag) {
@@ -113,6 +114,21 @@ const STATUS_TAG: Partial<Record<ItemStatus, { label: string; cls: string }>> = 
           </span>
         }
       </div>
+
+      @if (showQuickMove && otherColumns.length) {
+        <div class="mt-3 flex flex-wrap gap-1 border-t border-gray-100 pt-3 dark:border-white/[0.06]">
+          @for (st of otherColumns; track st) {
+            <button
+              type="button"
+              class="rounded-full px-2 py-0.5 text-[10px] font-semibold transition hover:scale-105"
+              [ngClass]="quickMoveClass(st)"
+              (click)="quickMove.emit(st); $event.stopPropagation()"
+            >
+              → {{ columnLabel(st) }}
+            </button>
+          }
+        </div>
+      }
     </article>
   `,
 })
@@ -121,10 +137,28 @@ export class KanbanCardComponent {
   @Input() sprintId = '';
   @Input() projectId = '';
   @Input() dragging = false;
+  @Input() showQuickMove = false;
+  @Input() currentStatus: ItemStatus = ItemStatus.Todo;
+  @Input() boardColumns: ItemStatus[] = [];
 
   @Output() dragStart = new EventEmitter<DragEvent>();
+  @Output() dragEnd = new EventEmitter<void>();
+  @Output() quickMove = new EventEmitter<ItemStatus>();
 
   private readonly maxVisibleAssignees = 3;
+
+  get otherColumns(): ItemStatus[] {
+    return this.boardColumns.filter((st) => st !== this.currentStatus);
+  }
+
+  columnLabel(status: ItemStatus): string {
+    return KANBAN_COLUMN_UI[status]?.label ?? 'Move';
+  }
+
+  quickMoveClass(status: ItemStatus): string {
+    const tag = STATUS_TAG[status];
+    return tag?.cls ?? 'bg-gray-100 text-gray-600';
+  }
 
   get assigneeList(): IssueAssignee[] {
     if (this.issue.assignees?.length) {

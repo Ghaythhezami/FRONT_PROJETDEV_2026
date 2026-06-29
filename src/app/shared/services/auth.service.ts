@@ -11,6 +11,7 @@ import {
   UserResponseDto,
 } from './auth.models';
 import { BoardSignalrService } from './board-signalr.service';
+import { PushNotificationService } from './push-notification.service';
 import { NotificationService } from './notification.service';
 import { isStaffRole } from '../utils/role.util';
 
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly http: HttpClient,
     private readonly notificationService: NotificationService,
     private readonly boardSignalrService: BoardSignalrService,
+    private readonly pushNotifications: PushNotificationService,
   ) {
     this.repairStoredUserFromToken();
     if (this.sessionActiveSignal()) {
@@ -136,6 +138,7 @@ export class AuthService {
   bootstrapRealtimeServices(): void {
     this.notificationService.loadMine().subscribe({ error: () => undefined });
     void this.boardSignalrService.start();
+    void this.pushNotifications.ensurePermission();
   }
 
   getUserDetails(email: string): Observable<AuthUser> {

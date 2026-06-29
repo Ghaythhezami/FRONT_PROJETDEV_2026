@@ -37,6 +37,7 @@ export function normalizeProject(raw: Raw): Project {
     memberCount: ['memberCount', 'MemberCount'],
     activeSprintName: ['activeSprintName', 'ActiveSprintName'],
     openIssueCount: ['openIssueCount', 'OpenIssueCount', 'openIssues', 'OpenIssues'],
+    isFinished: ['isFinished', 'IsFinished'],
   });
   project.id = extractUuid(raw, ['projectId', 'ProjectId', 'id', 'Id']) || project.id;
   project.defaultEpicId = extractUuid(raw, ['epicId', 'EpicId', 'defaultEpicId', 'DefaultEpicId']);

@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { NotificationResponseDto } from './notification.models';
 import { NotificationService } from './notification.service';
+import { PushNotificationService } from './push-notification.service';
 
 const ACCESS_TOKEN_KEY = 'agile_ai_access_token';
 
@@ -24,7 +25,10 @@ export class BoardSignalrService {
   /** Emits when the sprint board should reload (issue/comment/subtask changes). */
   readonly boardChanged$ = new Subject<void>();
 
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly pushNotifications: PushNotificationService,
+  ) {}
 
   async start(): Promise<void> {
     if (!this.accessToken || this.isStarting) {
@@ -93,6 +97,7 @@ export class BoardSignalrService {
 
     connection.on('NotificationReceived', (notification: NotificationResponseDto) => {
       this.notificationService.upsert(notification);
+      void this.pushNotifications.showFromSignal(notification);
     });
 
     connection.on('IssueChanged', notifyBoard);

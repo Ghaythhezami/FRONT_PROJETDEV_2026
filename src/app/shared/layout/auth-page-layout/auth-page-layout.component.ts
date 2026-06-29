@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { ThemeToggleTwoComponent } from '../../components/common/theme-toggle-two/theme-toggle-two.component';
+import { MiniKanbanShowcaseComponent } from '../../components/agile/mini-kanban-showcase/mini-kanban-showcase.component';
 
 @Component({
   selector: 'app-auth-page-layout',
-  imports: [RouterModule, ThemeToggleTwoComponent],
+  imports: [RouterModule, ThemeToggleTwoComponent, MiniKanbanShowcaseComponent],
   templateUrl: './auth-page-layout.component.html',
   styles: `
     @keyframes float {
@@ -23,21 +24,26 @@ import { ThemeToggleTwoComponent } from '../../components/common/theme-toggle-tw
       0% { transform: translate(0, 0); }
       100% { transform: translate(30px, -20px); }
     }
-    .auth-orb {
-      animation: float 6s ease-in-out infinite;
+    @keyframes auth-shimmer {
+      0% { background-position: 200% center; }
+      100% { background-position: -200% center; }
     }
-    .auth-orb-delayed {
-      animation: float 8s ease-in-out infinite 1s;
+    .auth-orb { animation: float 6s ease-in-out infinite; }
+    .auth-orb-delayed { animation: float 8s ease-in-out infinite 1s; }
+    .auth-glow { animation: pulse-glow 4s ease-in-out infinite; }
+    .auth-brand { animation: slide-in 0.7s ease-out both; }
+    .auth-grid-dot { animation: drift 12s linear infinite alternate; }
+    .auth-dot-grid {
+      position: absolute; inset: 0; opacity: 0.15;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px);
+      background-size: 24px 24px;
+      animation: drift 18s linear infinite alternate;
     }
-    .auth-glow {
-      animation: pulse-glow 4s ease-in-out infinite;
+    .auth-feature-line {
+      animation: slide-in 0.6s ease-out both;
     }
-    .auth-brand {
-      animation: slide-in 0.7s ease-out both;
-    }
-    .auth-grid-dot {
-      animation: drift 12s linear infinite alternate;
-    }
+    .auth-feature-line:nth-child(2) { animation-delay: 0.1s; }
+    .auth-feature-line:nth-child(3) { animation-delay: 0.2s; }
   `,
 })
 export class AuthPageLayoutComponent {}

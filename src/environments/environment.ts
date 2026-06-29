@@ -3,4 +3,5 @@ export const environment = {
   production: false,
   apiBaseUrl: 'http://localhost:5067',
   defaultSignupRole: 'analyste',
+  vapidPublicKey: 'BDFMs4p98XwAYjQfXPVBooBx_T_1zN5voNnRY7yo-Tk3u15eMe3ToIJ9g2dZgUolZpWJmNf1HsJYSKjOIfqUu_8',
 };
