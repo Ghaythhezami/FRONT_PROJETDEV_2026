@@ -1,0 +1,119 @@
+<div class="space-y-6">
+  <app-page-breadcrumb pageTitle="My tasks" />
+
+  <div>
+    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">My tasks</h1>
+    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+      Every issue assigned to you, grouped by project.
+    </p>
+  </div>
+
+  <div class="rounded-2xl border border-gray-100 bg-white dark:border-white/10 dark:bg-gray-900">
+    <div class="space-y-4 border-b border-gray-100 p-5 dark:border-white/10">
+      <app-search-toolbar
+        placeholder="Search tasks or projects…"
+        [total]="store.total()"
+        totalLabel="tasks"
+        (searchChange)="onSearch($event)"
+      />
+
+      @if (filtersError()) {
+        <app-ui-alert [message]="filtersError()" variant="warning" />
+      }
+
+      <div class="flex flex-wrap gap-3">
+        <select
+          class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          [(ngModel)]="selectedProjectId"
+          (ngModelChange)="applyFilters()"
+        >
+          <option value="">All projects</option>
+          @for (p of projectFilters(); track p.projectId) {
+            <option [value]="p.projectId">{{ p.key }} — {{ p.projectName }}</option>
+          }
+        </select>
+        <select
+          class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          [(ngModel)]="selectedStatus"
+          (ngModelChange)="applyFilters()"
+        >
+          @for (opt of statusOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="rounded-xl border border-sky-100 bg-sky-50/70 p-4 dark:border-sky-500/25 dark:bg-sky-500/10">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-medium text-sky-800 dark:text-sky-200">Date range</p>
+          <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-sky-700 dark:bg-gray-900 dark:text-sky-200">
+            {{ dateRangeLabel() }}
+          </span>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="min-w-0">
+            <app-date-picker
+              id="my-tasks-start"
+              label="Start date"
+              placeholder="Pick start date"
+              [defaultDate]="startDate || undefined"
+              (dateChange)="onStartDateChange($event)"
+            />
+          </div>
+          <div class="min-w-0">
+            <app-date-picker
+              id="my-tasks-end"
+              label="End date"
+              placeholder="Pick end date"
+              [defaultDate]="endDate || undefined"
+              (dateChange)="onEndDateChange($event)"
+            />
+          </div>
+        </div>
+        @if (startDate || endDate) {
+          <button type="button" class="mt-3 text-xs font-medium text-sky-700 underline dark:text-sky-200" (click)="clearDates()">
+            Clear dates
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (store.loading() && !store.items().length) {
+      <app-logo-loader [fullscreen]="true" />
+    } @else if (store.error()) {
+      <div class="m-5"><app-ui-alert [message]="store.error()!" variant="error" /></div>
+    } @else if (store.isEmpty()) {
+      <div class="py-16 text-center text-sm text-gray-500 dark:text-gray-400">No tasks match your filters.</div>
+    } @else {
+      <div class="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
+        @for (task of store.items(); track task.id) {
+          <a
+            [routerLink]="['/issues', task.id]"
+            [state]="{ issue: task }"
+            class="group min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-white to-sky-50/50 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md dark:border-white/10 dark:from-gray-900 dark:to-sky-500/5"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <span class="truncate rounded-md bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-700 dark:bg-sky-500/20 dark:text-sky-200">
+                {{ task.projectKey || 'PROJ' }}
+              </span>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" [ngClass]="statusClass(task.status)">
+                {{ statusLabel(task.status) }}
+              </span>
+            </div>
+            <h3 class="mt-3 line-clamp-2 break-words font-semibold text-gray-900 group-hover:text-sky-700 dark:text-white">
+              {{ task.title }}
+            </h3>
+            <p class="mt-1 truncate text-xs text-gray-600 dark:text-gray-300">
+              {{ task.projectName || 'Project' }}
+              @if (task.sprintName) {
+                · {{ task.sprintName }}
+              }
+            </p>
+          </a>
+        }
+      </div>
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()" (appInfiniteScroll)="store.loadMore()"></div>
+      <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
+    }
+  </div>
+</div>

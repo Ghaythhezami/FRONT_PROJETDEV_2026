@@ -25,6 +25,8 @@ export interface UserResponseDto {
   telephone?: string;
   role?: string;
   filiale?: string;
+  PhotoUrl?: string;
+  photoUrl?: string;
 }
 
 export interface AuthTokens {
@@ -40,4 +42,5 @@ export interface AuthUser {
   telephone: string;
   role: string;
   filiale: string;
+  photoUrl?: string;
 }

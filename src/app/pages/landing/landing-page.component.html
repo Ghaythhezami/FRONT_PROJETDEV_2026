@@ -1,0 +1,131 @@
+<div class="landing">
+  <!-- Hero band -->
+  <div class="landing-hero-band">
+    <div class="landing-hero-dots" aria-hidden="true"></div>
+
+    <header class="landing-nav landing-reveal">
+      <a routerLink="/" class="landing-logo">
+        <img src="/images/logo/logo-light.svg" alt="Agile Ai" class="landing-logo-img" />
+      </a>
+      <nav class="landing-nav-links">
+        <a href="#features">Features</a>
+        <a href="#workflow">Workflow</a>
+        <a href="/signin" (click)="navigateWithSplash('/signin', $event)">Sign in</a>
+      </nav>
+      <div class="landing-nav-actions">
+        <app-theme-toggle-two />
+        <a href="/signin" class="landing-btn landing-btn-primary" (click)="navigateWithSplash('/signin', $event)">Get started</a>
+      </div>
+    </header>
+
+    <section class="landing-hero landing-reveal landing-reveal-delay-1">
+      <p class="landing-eyebrow">Agile delivery workspace</p>
+      <h1 class="landing-headline">
+        Plan sprints. Ship with clarity.<br />
+        <span class="landing-headline-accent">One board for your whole team.</span>
+      </h1>
+      <p class="landing-subhead">
+        AgileAi brings kanban boards, backlog management, AI-assisted planning, and real-time notifications into a single professional workspace.
+      </p>
+      <div class="landing-hero-actions">
+        <a href="/signin" class="landing-btn landing-btn-white" (click)="navigateWithSplash('/signin', $event)">Start building</a>
+        <a href="/signup" class="landing-btn landing-btn-ghost-light" (click)="navigateWithSplash('/signup', $event)">Create account</a>
+      </div>
+    </section>
+  </div>
+
+  <!-- Board preview -->
+  <section class="landing-preview landing-reveal landing-reveal-delay-2">
+    <div class="landing-preview-shell">
+      <div class="landing-preview-toolbar">
+        <div class="landing-preview-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="landing-preview-title">NovaBoard — Sprint 2 · Mobile release</span>
+        <span class="landing-preview-badge" [class.landing-preview-badge-pulse]="livePulse()">Live sync</span>
+      </div>
+
+      <div class="landing-board">
+        @for (column of demoColumns(); track column.name + boardTick(); let ci = $index) {
+          <div class="landing-column {{ column.tone }} landing-column-live" [style.animation-delay]="`${ci * 120}ms`">
+            <div class="landing-column-head">
+              <span>{{ column.name }}</span>
+              <span class="landing-column-count">{{ column.cards.length }}</span>
+            </div>
+            @for (card of column.cards; track card.title + boardTick()) {
+              <article class="landing-card landing-card-live">
+                <span class="landing-priority {{ priorityClass(card.priority) }}">{{ card.priority }}</span>
+                <h3>{{ card.title }}</h3>
+                <p>{{ card.note }}</p>
+                <div class="landing-progress">
+                  <div class="landing-progress-bar" [style.width.%]="card.progress"></div>
+                </div>
+                <div class="landing-card-meta">
+                  <span>{{ card.assignees }} assignees</span>
+                  <span>{{ card.comments }} comments</span>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="landing-section">
+    <div class="landing-section-head landing-reveal">
+      <h2>Built for how your team actually works</h2>
+      <p>Every feature in AgileAi maps to a real screen in the app — no filler, no generic widgets.</p>
+    </div>
+    <div class="landing-features">
+      @for (feature of features; track feature.title; let i = $index) {
+        <article class="landing-feature landing-reveal" [style.animation-delay]="`${i * 70}ms`">
+          <div class="landing-feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path [attr.d]="feature.iconPath" />
+            </svg>
+          </div>
+          <h3>{{ feature.title }}</h3>
+          <p>{{ feature.desc }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <!-- Workflow -->
+  <section id="workflow" class="landing-section landing-section-muted">
+    <div class="landing-workflow">
+      <div class="landing-section-head landing-reveal">
+        <h2>From idea to done in three steps</h2>
+        <p>Onboard your team, run the sprint, and keep everyone aligned without switching tools.</p>
+      </div>
+      <ol class="landing-steps">
+        @for (step of steps; track step.n; let i = $index) {
+          <li class="landing-step landing-reveal" [style.animation-delay]="`${i * 100}ms`">
+            <span class="landing-step-num">{{ step.n }}</span>
+            <div>
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.desc }}</p>
+            </div>
+          </li>
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="landing-cta-band landing-reveal">
+    <div class="landing-cta-inner">
+      <img src="/images/logo/logo-icon.svg" alt="" class="landing-cta-logo" aria-hidden="true" />
+      <h2>Ready to open your sprint board?</h2>
+      <p>Sign in with your team account or create one and start planning today.</p>
+      <a href="/signin" class="landing-btn landing-btn-primary landing-btn-lg" (click)="navigateWithSplash('/signin', $event)">Go to login</a>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <img src="/images/logo/logo.svg" alt="Agile Ai" class="landing-footer-logo" />
+    <p>AgileAi — intelligent agile workspace for product teams</p>
+  </footer>
+</div>

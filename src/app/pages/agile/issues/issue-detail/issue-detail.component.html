@@ -1,0 +1,307 @@
+<div class="space-y-6">
+  @if (issue(); as iss) {
+    @if (iss.sprintId) {
+      <a
+        [routerLink]="['/sprints', iss.sprintId, 'board']"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Retour
+      </a>
+    } @else if (iss.projectId) {
+      <a
+        [routerLink]="['/projects', iss.projectId]"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Retour
+      </a>
+    } @else {
+      <a
+        routerLink="/my-tasks"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-brand-600 dark:text-gray-300 dark:hover:text-brand-400"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Retour
+      </a>
+    }
+  }
+  <app-page-breadcrumb pageTitle="Issue" />
+
+  @if (errorMessage()) {
+    <app-ui-alert [message]="errorMessage()" variant="error" />
+  }
+
+  @if (issue(); as iss) {
+    <app-ui-card>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          @if (iss.projectKey) {
+            <span class="rounded-md bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-700 dark:bg-sky-500/20 dark:text-sky-300">
+              {{ iss.projectKey }}
+            </span>
+          }
+          <h1 class="mt-2 break-words text-xl font-semibold text-gray-900 dark:text-white">{{ iss.title }}</h1>
+          @if (iss.projectName) {
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              {{ iss.projectName }} @if (iss.sprintName) { · {{ iss.sprintName }} }
+            </p>
+          }
+        </div>
+        @if (iss.assigneeName) {
+          <span class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800 dark:bg-sky-500/15 dark:text-sky-200">
+            {{ iss.assigneeName }}
+          </span>
+        }
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        @for (st of statuses; track st) {
+          <button
+            type="button"
+            class="rounded-full px-3 py-1 text-xs font-medium"
+            [ngClass]="statusColors[st]"
+            [class.ring-2]="iss.status === st"
+            [class.ring-sky-500]="iss.status === st"
+            [disabled]="isSaving()"
+            (click)="updateStatus(st)"
+          >
+            {{ statusLabels[st] }}
+          </button>
+        }
+        @if (isAdmin()) {
+          <app-ui-button variant="outline" size="sm" (pressed)="autoAssign()">Auto-assign (AI)</app-ui-button>
+        }
+      </div>
+    </app-ui-card>
+
+    <app-ui-card title="Assignment" [subtitle]="isAdmin() ? 'Assign any project member' : 'Take ownership of this task'">
+      @if (isAdmin()) {
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div class="min-w-0 flex-1">
+            <app-infinite-select
+              label="Team member"
+              placeholder="Search project members"
+              [options]="assigneeSelectOptions()"
+              [loading]="assigneeSelectLoading()"
+              [hasMore]="assigneePickerHasMore()"
+              [value]="selectedAssigneeId"
+              (valueChange)="selectedAssigneeId = $event"
+              (search)="onAssigneeSearch($event)"
+              (loadMore)="onAssigneeLoadMore()"
+            />
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <app-ui-button [loading]="isAssigning()" (pressed)="assignSelectedMember()">Assign</app-ui-button>
+            <app-ui-button variant="outline" [loading]="isAssigning()" (pressed)="clearAssignee()">Unassign</app-ui-button>
+          </div>
+        </div>
+      } @else {
+        <div class="flex flex-wrap gap-2">
+          @if (!isAssignedToMe()) {
+            <app-ui-button [loading]="isAssigning()" (pressed)="assignMe()">Assign me to this ticket</app-ui-button>
+          } @else {
+            <app-ui-button variant="outline" [loading]="isAssigning()" (pressed)="unassignMe()">Unassign me</app-ui-button>
+          }
+        </div>
+      }
+    </app-ui-card>
+  }
+
+  <app-ui-card title="Comments" subtitle="Discuss this task — attach photos or files inline">
+    <app-ui-form-textarea
+      placeholder="Add a comment…"
+      [(ngModel)]="newComment"
+      name="comment"
+    />
+    <div class="mt-3 flex flex-wrap items-center gap-3">
+      <app-ui-button (pressed)="postComment()">Post comment</app-ui-button>
+      <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+        <span>📎 Add photo/file</span>
+        <input type="file" class="hidden" accept="image/*,.pdf,.doc,.docx" (change)="onCommentFileSelected($event)" />
+      </label>
+    </div>
+
+    @if (pendingAttachmentUploads().length) {
+      <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        @for (pending of pendingAttachmentUploads(); track pending.id) {
+          <div class="overflow-hidden rounded-xl border border-sky-100 bg-sky-50/60 dark:border-sky-500/20 dark:bg-sky-500/5">
+            <div class="relative flex min-h-[120px] items-center justify-center bg-white/70 dark:bg-gray-900/50">
+              @if (pending.loading) {
+                <div class="h-10 w-10 animate-spin rounded-full border-2 border-sky-200 border-t-sky-500"></div>
+              } @else if (pending.isImage && (pending.url || pending.previewUrl)) {
+                <img [src]="pending.url || pending.previewUrl" [alt]="pending.fileName" class="max-h-40 w-full object-cover" />
+              } @else {
+                <span class="px-3 text-center text-sm text-gray-600 dark:text-gray-300">{{ pending.fileName }}</span>
+              }
+            </div>
+            <div class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+              {{ pending.uploaderName }}
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <ul class="mt-4 divide-y divide-gray-100 dark:divide-white/10">
+      @for (c of commentStore.items(); track c.id) {
+        <li class="py-3">
+          @if (commentPlainText(c.content)) {
+            <p class="text-sm text-gray-900 dark:text-gray-100">{{ commentPlainText(c.content) }}</p>
+          }
+          @if (commentImageUrl(c.content); as imgUrl) {
+            <img [src]="imgUrl" alt="Comment attachment" class="mt-2 max-h-48 rounded-lg border border-gray-100 object-cover dark:border-white/10" />
+          }
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ commentAuthorName(c) }} · {{ c.createdAt | date: 'short' }}
+          </p>
+        </li>
+      }
+    </ul>
+    <div appInfiniteScroll [appInfiniteScrollDisabled]="!commentStore.hasMore()" (appInfiniteScroll)="commentStore.loadMore()"></div>
+    <app-load-more-footer
+      [loading]="commentStore.loadingMore()"
+      [hasMore]="commentStore.hasMore()"
+      [shown]="commentStore.items().length"
+      [total]="commentStore.total()"
+      (loadMore)="commentStore.loadMore()"
+    />
+  </app-ui-card>
+
+  @if (issue(); as iss) {
+    <section class="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-slate-50 p-5 dark:border-violet-500/20 dark:from-violet-500/5 dark:to-gray-900/40">
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-violet-900 dark:text-violet-200">Subtasks</h2>
+        <p class="text-sm text-violet-700/80 dark:text-violet-200/70">Lighter checklist items with assignee, dates, comments & attachments</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <div class="min-w-[200px] flex-1">
+          <app-ui-form-field
+            placeholder="New subtask"
+            [(ngModel)]="newSubtaskTitle"
+            name="subtaskTitle"
+          />
+        </div>
+        <app-ui-button (pressed)="addSubtask()">Add</app-ui-button>
+        @if (isAdmin()) {
+          <app-ui-button variant="secondary" [loading]="isAiLoading()" (pressed)="generateAiSubtasks()">
+            AI suggest
+          </app-ui-button>
+        }
+      </div>
+
+      @if (aiSubtasks()) {
+        <div class="mt-4 whitespace-pre-wrap rounded-lg bg-white/70 p-3 text-sm leading-relaxed text-violet-900 dark:bg-gray-900/50 dark:text-violet-100">{{ aiSubtasks() }}</div>
+      }
+
+      <div class="mt-4 space-y-3">
+        @for (st of subtasks(); track st.id) {
+          <details
+            class="group overflow-hidden rounded-xl border border-violet-100/80 bg-white/90 shadow-sm dark:border-violet-500/15 dark:bg-gray-900/50"
+            (toggle)="onSubtaskToggleOpen(st, $any($event.target).open)"
+          >
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none">
+              <div class="flex min-w-0 flex-1 items-center gap-3">
+                <button
+                  type="button"
+                  class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold"
+                  [class.border-emerald-200]="st.isCompleted"
+                  [class.bg-emerald-50]="st.isCompleted"
+                  [class.text-emerald-700]="st.isCompleted"
+                  [class.border-violet-200]="!st.isCompleted"
+                  [class.bg-violet-50]="!st.isCompleted"
+                  [class.text-violet-600]="!st.isCompleted"
+                  (click)="$event.preventDefault(); toggleSubtask(st)"
+                >
+                  {{ st.isCompleted ? '✓' : '○' }}
+                </button>
+                <div class="min-w-0">
+                  <span class="block truncate text-sm font-medium text-gray-800 dark:text-gray-100" [class.line-through]="st.isCompleted" [class.text-gray-400]="st.isCompleted">
+                    {{ st.title }}
+                  </span>
+                  @if (st.assigneeName || st.dueDate) {
+                    <span class="mt-0.5 block truncate text-[11px] text-violet-600/80 dark:text-violet-300/80">
+                      @if (st.assigneeName) { {{ st.assigneeName }} }
+                      @if (st.dueDate) { · due {{ st.dueDate | date: 'mediumDate' }} }
+                    </span>
+                  }
+                </div>
+              </div>
+              <span class="text-xs text-violet-400">Details</span>
+            </summary>
+
+            <div class="space-y-4 border-t border-violet-100/80 px-4 py-4 dark:border-violet-500/15">
+              <div class="grid gap-3 sm:grid-cols-2">
+                <app-infinite-select
+                  label="Assignee"
+                  placeholder="Search members"
+                  [options]="assigneeSelectOptions()"
+                  [loading]="assigneeSelectLoading()"
+                  [hasMore]="assigneePickerHasMore()"
+                  [value]="subtaskAssigneeDrafts[st.id] || ''"
+                  (valueChange)="subtaskAssigneeDrafts[st.id] = $event"
+                  (search)="onAssigneeSearch($event)"
+                  (loadMore)="onAssigneeLoadMore()"
+                />
+                <app-date-picker
+                  [id]="'subtask-start-' + st.id"
+                  label="Start date"
+                  placeholder="Start"
+                  [defaultDate]="subtaskStartDrafts[st.id] || undefined"
+                  (dateChange)="onSubtaskStartDateChange(st.id, $event)"
+                />
+                <app-date-picker
+                  [id]="'subtask-due-' + st.id"
+                  label="Due date"
+                  placeholder="Due"
+                  [defaultDate]="subtaskDueDrafts[st.id] || undefined"
+                  (dateChange)="onSubtaskDueDateChange(st.id, $event)"
+                />
+              </div>
+              <app-ui-button size="sm" (pressed)="saveSubtask(st)">Save subtask</app-ui-button>
+
+              <div class="rounded-lg border border-violet-100/60 bg-violet-50/40 p-3 dark:border-violet-500/10 dark:bg-violet-500/5">
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">Comments</p>
+                <app-ui-form-textarea
+                  placeholder="Comment on this subtask…"
+                  [(ngModel)]="subtaskCommentDrafts[st.id]"
+                  [name]="'subtaskComment' + st.id"
+                />
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <app-ui-button size="xs" (pressed)="postSubtaskComment(st)">Post</app-ui-button>
+                  <label class="inline-flex cursor-pointer items-center rounded-md border border-violet-200 bg-white px-2 py-1 text-xs font-medium text-violet-700 dark:border-violet-500/30 dark:bg-gray-900 dark:text-violet-200">
+                    📎 File
+                    <input type="file" class="hidden" accept="image/*,.pdf,.doc,.docx" (change)="onSubtaskFileSelected(st, $event)" />
+                  </label>
+                </div>
+                <ul class="mt-3 space-y-2">
+                  @for (c of subtaskComments()[st.id] ?? []; track c.id) {
+                    <li class="rounded-md bg-white/80 px-3 py-2 text-sm dark:bg-gray-900/60">
+                      @if (commentPlainText(c.content)) {
+                        <p>{{ commentPlainText(c.content) }}</p>
+                      }
+                      @if (commentImageUrl(c.content); as imgUrl) {
+                        <img [src]="imgUrl" alt="Attachment" class="mt-2 max-h-32 rounded-md object-cover" />
+                      }
+                      <p class="mt-1 text-[10px] text-gray-500">{{ commentAuthorName(c) }} · {{ c.createdAt | date: 'short' }}</p>
+                    </li>
+                  } @empty {
+                    <li class="text-xs text-violet-600/70 dark:text-violet-300/70">No subtask comments yet.</li>
+                  }
+                </ul>
+              </div>
+            </div>
+          </details>
+        } @empty {
+          <p class="py-4 text-center text-sm text-violet-600/70 dark:text-violet-300/70">No subtasks yet.</p>
+        }
+      </div>
+    </section>
+  }
+</div>

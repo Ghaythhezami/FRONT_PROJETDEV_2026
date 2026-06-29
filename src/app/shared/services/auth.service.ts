@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
-import { Observable, map, switchMap, tap } from 'rxjs';
+import { Observable, catchError, map, of, retry, switchMap, tap, timer } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
+import { RegisterUserDto } from './user-management.models';
 import {
   AuthTokens,
   AuthUser,
@@ -11,6 +12,7 @@ import {
 } from './auth.models';
 import { BoardSignalrService } from './board-signalr.service';
 import { NotificationService } from './notification.service';
+import { isStaffRole } from '../utils/role.util';
 
 const ACCESS_TOKEN_KEY = 'agile_ai_access_token';
 const REFRESH_TOKEN_KEY = 'agile_ai_refresh_token';
@@ -20,18 +22,85 @@ const USER_KEY = 'agile_ai_user';
 export class AuthService {
   private readonly apiUrl = `${API_BASE_URL}/api/User`;
   private readonly currentUserSignal = signal<AuthUser | null>(this.readUser());
+  /** Tracks login state reactively — storage alone does not update computed signals. */
+  private readonly sessionActiveSignal = signal(!!this.readStorage(ACCESS_TOKEN_KEY));
 
   readonly currentUser = this.currentUserSignal.asReadonly();
-  readonly isAuthenticated = computed(() => !!this.accessToken);
+  readonly isAuthenticated = computed(() => this.sessionActiveSignal());
+  readonly isAdmin = computed(() => isStaffRole(this.currentUserSignal()?.role));
 
   constructor(
     private readonly http: HttpClient,
     private readonly notificationService: NotificationService,
     private readonly boardSignalrService: BoardSignalrService,
-  ) {}
+  ) {
+    this.repairStoredUserFromToken();
+    if (this.sessionActiveSignal()) {
+      this.bootstrapRealtimeServices();
+    }
+  }
 
   get accessToken(): string | null {
     return this.readStorage(ACCESS_TOKEN_KEY);
+  }
+
+  get refreshToken(): string | null {
+    return this.readStorage(REFRESH_TOKEN_KEY);
+  }
+
+  /** Used by route guards — reads live token from storage as well as the session signal. */
+  hasValidSession(): boolean {
+    return this.sessionActiveSignal() && !!this.readStorage(ACCESS_TOKEN_KEY);
+  }
+
+  refreshAccessToken(): Observable<AuthTokens> {
+    const refreshToken = this.refreshToken;
+    if (!refreshToken) {
+      throw new Error('No refresh token');
+    }
+    const accessToken = this.accessToken ?? '';
+    return this.http
+      .post<TokenApiDto>(`${this.apiUrl}/refresh`, {
+        AccessToken: accessToken,
+        RefreshToken: refreshToken,
+      })
+      .pipe(
+        map((tokens) => this.normalizeTokens(tokens)),
+        tap((tokens) => {
+          const storage = localStorage.getItem(ACCESS_TOKEN_KEY) ? localStorage : sessionStorage;
+          storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+          storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+          this.sessionActiveSignal.set(true);
+        }),
+      );
+  }
+
+  getUsers(query?: { page?: number; limit?: number }): Observable<AuthUser[]> {
+    const params: Record<string, string> = {};
+    if (query?.page) {
+      params['page'] = String(query.page);
+    }
+    if (query?.limit) {
+      params['limit'] = String(query.limit ?? 10);
+    }
+    return this.http
+      .get<UserResponseDto[]>(this.apiUrl, { params })
+      .pipe(map((users) => users.map((u) => this.normalizeUser(u))));
+  }
+
+  register(user: RegisterUserDto): Observable<AuthUser> {
+    return this.http
+      .post<{ user?: UserResponseDto } | UserResponseDto>(`${this.apiUrl}/register`, user)
+      .pipe(
+        map((response) => {
+          const record = response as Record<string, unknown>;
+          const dto =
+            record && typeof record === 'object' && ('user' in record || 'User' in record)
+              ? ((record['user'] ?? record['User']) as UserResponseDto)
+              : (response as UserResponseDto);
+          return this.normalizeUser(dto ?? {});
+        }),
+      );
   }
 
   login(email: string, password: string, rememberMe: boolean): Observable<AuthUser> {
@@ -41,15 +110,32 @@ export class AuthService {
     };
 
     return this.http.post<TokenApiDto>(`${this.apiUrl}/authenticate`, request).pipe(
+      retry({
+        count: 2,
+        delay: (error, retryCount) => {
+          const status = error?.status;
+          if (status !== 504 && status !== 503 && status !== 0) {
+            throw error;
+          }
+          return timer(retryCount * 4000);
+        },
+      }),
       map((tokens) => this.normalizeTokens(tokens)),
       tap((tokens) => this.storeTokens(tokens, rememberMe)),
-      switchMap(() => this.getUserDetails(email)),
+      switchMap(() =>
+        this.getUserDetails(email).pipe(
+          catchError(() => of(this.fallbackUser(email))),
+        ),
+      ),
+      map((user) => this.ensureUserId(user)),
       tap((user) => this.storeUser(user, rememberMe)),
-      tap(() => {
-        this.notificationService.loadMine().subscribe();
-        this.boardSignalrService.start();
-      }),
     );
+  }
+
+  /** Load notifications and SignalR after navigation — avoids blocking login redirect. */
+  bootstrapRealtimeServices(): void {
+    this.notificationService.loadMine().subscribe({ error: () => undefined });
+    void this.boardSignalrService.start();
   }
 
   getUserDetails(email: string): Observable<AuthUser> {
@@ -65,8 +151,60 @@ export class AuthService {
       storage.removeItem(USER_KEY);
     });
     this.currentUserSignal.set(null);
+    this.sessionActiveSignal.set(false);
     this.notificationService.clear();
     this.boardSignalrService.stop();
+  }
+
+  private fallbackUser(email: string): AuthUser {
+    return this.ensureUserId({
+      userId: '',
+      nom: '',
+      prenom: email.split('@')[0] ?? 'User',
+      email,
+      telephone: '',
+      role: '',
+      filiale: '',
+    });
+  }
+
+  private ensureUserId(user: AuthUser): AuthUser {
+    if (user.userId?.trim()) {
+      return user;
+    }
+    const fromToken = this.userIdFromAccessToken();
+    return fromToken ? { ...user, userId: fromToken } : user;
+  }
+
+  private userIdFromAccessToken(): string {
+    const token = this.accessToken;
+    if (!token) {
+      return '';
+    }
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) {
+        return '';
+      }
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = JSON.parse(atob(normalized)) as Record<string, unknown>;
+      return String(decoded['UserId'] ?? decoded['userId'] ?? '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  private repairStoredUserFromToken(): void {
+    const user = this.currentUserSignal();
+    if (!user || user.userId?.trim()) {
+      return;
+    }
+    const repaired = this.ensureUserId(user);
+    if (repaired.userId && repaired.userId !== user.userId) {
+      const storage = localStorage.getItem(USER_KEY) ? localStorage : sessionStorage;
+      storage.setItem(USER_KEY, JSON.stringify(repaired));
+      this.currentUserSignal.set(repaired);
+    }
   }
 
   private normalizeTokens(tokens: TokenApiDto): AuthTokens {
@@ -80,6 +218,15 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  uploadProfilePhoto(file: File): Observable<AuthUser> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.http.post<UserResponseDto>(`${this.apiUrl}/profile-photo`, formData).pipe(
+      map((dto) => this.normalizeUser(dto)),
+      tap((user) => this.updateStoredUser(user)),
+    );
+  }
+
   private normalizeUser(user: UserResponseDto): AuthUser {
     return {
       userId: user.UserId ?? user.userId ?? '',
@@ -89,7 +236,14 @@ export class AuthService {
       telephone: user.Telephone ?? user.telephone ?? '',
       role: user.Role ?? user.role ?? '',
       filiale: user.Filiale ?? user.filiale ?? '',
+      photoUrl: user.PhotoUrl ?? user.photoUrl ?? '',
     };
+  }
+
+  updateStoredUser(user: AuthUser): void {
+    const storage = localStorage.getItem(USER_KEY) ? localStorage : sessionStorage;
+    storage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUserSignal.set(user);
   }
 
   private storeTokens(tokens: AuthTokens, rememberMe: boolean): void {
@@ -97,6 +251,7 @@ export class AuthService {
     this.clearAuthStorage();
     storage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
     storage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    this.sessionActiveSignal.set(true);
   }
 
   private storeUser(user: AuthUser, rememberMe: boolean): void {
@@ -130,5 +285,6 @@ export class AuthService {
       storage.removeItem(REFRESH_TOKEN_KEY);
       storage.removeItem(USER_KEY);
     });
+    this.sessionActiveSignal.set(false);
   }
 }

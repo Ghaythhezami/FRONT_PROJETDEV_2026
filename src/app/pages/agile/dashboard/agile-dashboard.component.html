@@ -1,0 +1,140 @@
+<div class="min-w-0 space-y-6 overflow-x-hidden">
+  <app-page-breadcrumb pageTitle="Dashboard" />
+
+  <section class="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-900 via-brand-800 to-violet-900 p-6 text-white shadow-xl sm:p-8">
+    <p class="text-sm text-white/70">Agile AI workspace</p>
+    <h1 class="mt-2 text-2xl font-bold sm:text-4xl">{{ greeting }}</h1>
+    <p class="mt-2 max-w-2xl text-sm text-white/80">
+      Track sprint contributions, recent work, and AI insights in one place.
+    </p>
+  </section>
+
+  @if (stats(); as s) {
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      @if (s.isGlobalView) {
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">Open tasks (all projects)</p>
+          <p class="mt-2 text-3xl font-bold text-brand-600">{{ s.globalOpenTasks }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">Completed (portfolio)</p>
+          <p class="mt-2 text-3xl font-bold text-emerald-600">{{ s.globalDoneTasks }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">Active sprints</p>
+          <p class="mt-2 text-3xl font-bold text-violet-600">{{ s.activeSprints }}</p>
+        </div>
+      } @else {
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">My open tasks</p>
+          <p class="mt-2 text-3xl font-bold text-brand-600">{{ s.myOpenTasks }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">Completed</p>
+          <p class="mt-2 text-3xl font-bold text-emerald-600">{{ s.myDoneTasks }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">Review returns</p>
+          <p class="mt-2 text-3xl font-bold text-amber-600">{{ s.reviewFailures }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900">
+          <p class="text-xs uppercase text-gray-500">Contributors</p>
+          <p class="mt-2 text-3xl font-bold text-violet-600">{{ s.contributorCount }}</p>
+        </div>
+      }
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/[0.05] dark:bg-gray-900 xl:col-span-2">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">Sprint contributions</h2>
+        <p class="text-sm text-gray-500">Tasks in active sprints vs completed</p>
+        <div class="mt-6 flex items-end gap-3 overflow-x-auto pb-2">
+          @for (dev of s.sprintContributions; track dev.developerName) {
+            <div class="flex min-w-[72px] flex-col items-center gap-2">
+              <div class="flex h-32 w-12 items-end justify-center gap-1">
+                <div class="w-4 rounded-t bg-brand-200 dark:bg-brand-500/30" [style.height.%]="contributionHeight(dev.totalTasks - dev.doneTasks, dev.totalTasks)"></div>
+                <div class="w-4 rounded-t bg-brand-600" [style.height.%]="contributionHeight(dev.doneTasks, dev.totalTasks)"></div>
+              </div>
+              <span class="truncate text-center text-[10px] font-medium text-gray-600 dark:text-gray-400">{{ dev.developerName.split(' ')[0] }}</span>
+              <span class="text-[10px] text-gray-400">{{ dev.doneTasks }}/{{ dev.totalTasks }}</span>
+            </div>
+          } @empty {
+            <p class="text-sm text-gray-500">No active sprint data yet.</p>
+          }
+        </div>
+        @if (s.contributorNames.length) {
+          <div class="mt-4 flex flex-wrap gap-2">
+            @for (name of s.contributorNames; track name) {
+              <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">{{ name }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 dark:border-amber-500/20 dark:from-amber-500/10 dark:to-orange-500/5">
+        <h2 class="text-lg font-semibold text-amber-900 dark:text-amber-200">AI recommendations</h2>
+        <p class="mt-3 text-sm leading-relaxed text-amber-900/80 dark:text-amber-100/80">{{ s.aiRecommendation }}</p>
+        <a routerLink="/my-tasks" class="mt-4 inline-flex rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">View my tasks</a>
+      </div>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 dark:border-white/[0.05] dark:bg-gray-900">
+        <h2 class="font-semibold">Recent tasks</h2>
+        <ul class="mt-4 space-y-3">
+          @for (task of s.recentTasks; track task.issueId) {
+            <li>
+              <a [routerLink]="['/issues', task.issueId]" class="block rounded-lg border border-gray-100 p-3 hover:border-brand-200 dark:border-white/[0.05]">
+                <p class="truncate font-medium text-gray-900 dark:text-white/90">{{ task.title }}</p>
+                <p class="text-xs text-gray-500">{{ task.projectKey }} · {{ task.projectName }}</p>
+              </a>
+            </li>
+          } @empty { <li class="text-sm text-gray-500">No recent tasks</li> }
+        </ul>
+      </div>
+      <div class="rounded-2xl border border-gray-100 bg-white p-5 dark:border-white/[0.05] dark:bg-gray-900">
+        <h2 class="font-semibold">Recent projects</h2>
+        <ul class="mt-4 space-y-3">
+          @for (p of s.recentProjects; track p.projectId) {
+            <li>
+              <a [routerLink]="['/projects', p.projectId]" class="block rounded-lg border border-gray-100 p-3 hover:border-brand-200 dark:border-white/[0.05]">
+                <p class="font-medium text-gray-900 dark:text-white/90">{{ p.projectName }}</p>
+                <p class="text-xs text-gray-500">{{ p.key }} · {{ p.activeSprintName || 'No active sprint' }}</p>
+              </a>
+            </li>
+          } @empty { <li class="text-sm text-gray-500">No recent projects</li> }
+        </ul>
+      </div>
+    </div>
+  }
+
+  <div>
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white/90">My projects</h2>
+        <p class="text-sm text-gray-500">Tap a folder to open your workspace</p>
+      </div>
+    </div>
+    <div class="mb-4">
+      <app-search-toolbar placeholder="Search projects…" [total]="store.total()" totalLabel="projects" (searchChange)="onSearch($event)" />
+    </div>
+
+    @if (store.loading() && !store.items().length) {
+      <app-logo-loader [fullscreen]="true" />
+    } @else if (store.error()) {
+      <app-ui-alert [message]="store.error()!" variant="error" />
+    } @else if (store.isEmpty()) {
+      <div class="py-16 text-center text-sm text-gray-500">No projects yet</div>
+    } @else {
+      <div class="grid min-w-0 max-w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        @for (project of store.items(); track project.id) {
+          <div class="min-w-0 max-w-full">
+            <app-folder-project-card [project]="project" />
+          </div>
+        }
+      </div>
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()" (appInfiniteScroll)="store.loadMore()"></div>
+      <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
+    }
+  </div>
+</div>

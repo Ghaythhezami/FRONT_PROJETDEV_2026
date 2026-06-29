@@ -2,7 +2,20 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
+import { PagedResult, PaginationQuery } from '../models/pagination.models';
+import { parsePagedResponse } from '../utils/api.util';
 import { NotificationResponse, NotificationResponseDto } from './notification.models';
+
+export interface SendNotificationPayload {
+  ReceiverId: string;
+  Description?: string;
+  Link?: string;
+}
+
+export interface TestNotificationPayload {
+  ReceiverId: string;
+  Description?: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
@@ -20,12 +33,21 @@ export class NotificationService {
 
   constructor(private readonly http: HttpClient) {}
 
-  loadMine(): Observable<NotificationResponse[]> {
+  loadMine(query: PaginationQuery = { page: 1, limit: 10 }): Observable<NotificationResponse[]> {
     this.isLoadingSignal.set(true);
     this.errorSignal.set('');
 
-    return this.http.get<NotificationResponseDto[]>(`${this.apiUrl}/mine`).pipe(
-      map((notifications) => notifications.map((notification) => this.normalize(notification))),
+    return this.http.get<unknown>(`${this.apiUrl}/mine`).pipe(
+      map((body) => {
+        const page = query.page ?? 1;
+        const limit = query.limit ?? 10;
+        const parsed = parsePagedResponse<NotificationResponseDto>(body, page, limit);
+        const list = (Array.isArray(body)
+          ? (body as NotificationResponseDto[])
+          : parsed.items
+        ).map((n) => this.normalize(n));
+        return list;
+      }),
       tap((notifications) => {
         this.notificationsSignal.set(this.sortNotifications(this.dedupe(notifications)));
         this.isLoadingSignal.set(false);
@@ -38,6 +60,28 @@ export class NotificationService {
         return of([]);
       }),
     );
+  }
+
+  getMinePaged(query: PaginationQuery): Observable<PagedResult<NotificationResponse>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    return this.http.get<unknown>(`${this.apiUrl}/mine`).pipe(
+      map((body) => {
+        const parsed = parsePagedResponse<NotificationResponseDto>(body, page, limit);
+        const items = (Array.isArray(body) ? (body as NotificationResponseDto[]) : parsed.items).map(
+          (n) => this.normalize(n),
+        );
+        return { ...parsed, items };
+      }),
+    );
+  }
+
+  send(payload: SendNotificationPayload): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/Send`, payload);
+  }
+
+  sendTest(payload: TestNotificationPayload): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/TTest`, payload);
   }
 
   markAsRead(notificationId: string): Observable<void> {

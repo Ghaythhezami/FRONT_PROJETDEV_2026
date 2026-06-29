@@ -1,0 +1,136 @@
+<div class="space-y-6">
+  <app-page-breadcrumb pageTitle="Product backlog" />
+
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Backlog</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Epics, user stories, and sprint assignment — drag-free planning with paginated search.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <app-ui-button variant="outline" (pressed)="openEpicModal()">New epic</app-ui-button>
+      <app-ui-button (pressed)="openStoryModal()">New user story</app-ui-button>
+    </div>
+  </div>
+
+  @if (formError() && !showStoryModal() && !showEpicModal()) {
+    <app-ui-alert [message]="formError()" variant="error" [dismissible]="true" (dismissed)="formError.set('')" />
+  }
+
+  <app-ui-modal
+    [isOpen]="showEpicModal()"
+    title="Create epic"
+    subtitle="Create a new epic for this product"
+    size="md"
+    [showFooter]="true"
+    (close)="showEpicModal.set(false)"
+  >
+    <form class="space-y-4" id="epicForm" (ngSubmit)="createEpic()">
+      <app-ui-form-field label="Title" [(ngModel)]="newEpic.title" name="epicTitle" [required]="true" />
+      <app-ui-form-textarea label="Description" [(ngModel)]="newEpic.description" name="epicDesc" />
+      @if (formError() && showEpicModal()) {
+        <app-ui-alert [message]="formError()" variant="error" />
+      }
+    </form>
+    <div modalFooter class="flex w-full justify-end gap-2">
+      <app-ui-button variant="outline" (pressed)="showEpicModal.set(false)">Cancel</app-ui-button>
+      <app-ui-button type="submit" formId="epicForm" [loading]="isEpicSaving()">Create epic</app-ui-button>
+    </div>
+  </app-ui-modal>
+
+  <app-ui-modal
+    [isOpen]="showStoryModal()"
+    title="Create user story"
+    subtitle="Add a story to your product backlog"
+    size="lg"
+    [showFooter]="true"
+    (close)="showStoryModal.set(false)"
+  >
+    <form class="space-y-4" id="storyForm" (ngSubmit)="createStory()">
+      <app-ui-form-field label="Title" [(ngModel)]="newStory.title" name="title" [required]="true" />
+      <app-ui-form-textarea label="Description" [(ngModel)]="newStory.description" name="desc" />
+      <div class="flex flex-wrap gap-2">
+        <app-ui-button variant="secondary" size="sm" [loading]="isAiLoading()" (pressed)="generateDescription()">
+          AI description
+        </app-ui-button>
+        <app-ui-button variant="secondary" size="sm" [loading]="isAiLoading()" (pressed)="generateAcceptance()">
+          AI acceptance criteria
+        </app-ui-button>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-3">
+        <app-ui-form-select label="Epic" [(ngModel)]="newStory.epicId" name="epicId" [options]="epicOptions" />
+        <app-ui-form-select label="Sprint (optional)" [(ngModel)]="newStory.sprintId" name="sprintId" [options]="sprintOptions" />
+        <app-ui-form-field label="Story points" type="number" [(ngModel)]="newStory.storyPoints" name="points" [min]="1" [max]="100" />
+      </div>
+      @if (formError() && showStoryModal()) {
+        <app-ui-alert [message]="formError()" variant="error" />
+      }
+    </form>
+    <div modalFooter class="flex w-full justify-end gap-2">
+      <app-ui-button variant="outline" (pressed)="showStoryModal.set(false)">Cancel</app-ui-button>
+      <app-ui-button type="submit" formId="storyForm" [loading]="isSaving()">Create story</app-ui-button>
+    </div>
+  </app-ui-modal>
+
+  <app-ui-card title="Epics" subtitle="Group user stories under strategic themes">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      @for (epic of epics(); track epic.id) {
+        <div class="rounded-xl border border-gray-100 bg-gradient-to-br from-brand-50/80 to-white p-4 dark:border-white/[0.05] dark:from-brand-500/10 dark:to-gray-900">
+          <h3 class="font-semibold text-gray-900 dark:text-white/90">{{ epic.title }}</h3>
+          <p class="mt-1 text-xs text-gray-500">Epic · backlog container</p>
+        </div>
+      } @empty {
+        <p class="text-sm text-gray-500 sm:col-span-2 lg:col-span-3">No epics yet — create one to organize your backlog like Jira.</p>
+      }
+    </div>
+  </app-ui-card>
+
+  <app-ui-card title="User stories" [noPadding]="true">
+    <div class="border-b border-gray-100 p-5 dark:border-white/[0.05]">
+      <app-search-toolbar placeholder="Search user stories…" [total]="store.total()" totalLabel="stories" (searchChange)="store.setSearch($event)" />
+    </div>
+
+    @if (store.loading() && !store.items().length) {
+      <app-logo-loader [fullscreen]="true" />
+    } @else if (store.error()) {
+      <div class="m-5"><app-ui-alert [message]="store.error()!" variant="error" /></div>
+    } @else {
+      <div class="divide-y divide-gray-100 dark:divide-white/[0.05]">
+        @for (story of store.items(); track story.id) {
+          <article class="px-5 py-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 class="font-medium text-gray-800 dark:text-white/90">{{ story.title }}</h3>
+                <p class="mt-1 line-clamp-2 text-sm text-gray-500">{{ story.description || '—' }}</p>
+                @if (story.sprintId) {
+                  <p class="mt-1 text-xs text-brand-600">In sprint</p>
+                }
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                @if (story.storyPoints) {
+                  <span class="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">{{ story.storyPoints }} pts</span>
+                }
+                <app-ui-button variant="ghost" size="xs" (pressed)="predictPriority(story)">AI priority</app-ui-button>
+                <app-ui-form-select
+                  [options]="sprintAssignOptions"
+                  [ngModel]="assignSprintId()[story.id] || ''"
+                  (ngModelChange)="setAssignSprint(story.id, $event)"
+                  name="assign-{{ story.id }}"
+                />
+                <app-ui-button variant="outline" size="xs" (pressed)="assignToSprint(story)">Assign</app-ui-button>
+                @if (story.sprintId) {
+                  <a [routerLink]="['/sprints', story.sprintId, 'board']" class="text-xs text-brand-600">Open board →</a>
+                }
+              </div>
+            </div>
+          </article>
+        } @empty {
+          <div class="py-16 text-center text-sm text-gray-500">Backlog is empty — create your first story.</div>
+        }
+      </div>
+      <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()" (appInfiniteScroll)="store.loadMore()"></div>
+      <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
+    }
+  </app-ui-card>
+</div>

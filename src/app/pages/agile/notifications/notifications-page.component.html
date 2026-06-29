@@ -1,0 +1,63 @@
+<div class="space-y-6">
+  <app-page-breadcrumb pageTitle="Notifications" />
+  <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Notifications</h1>
+
+  @if (authService.isAdmin()) {
+    <div class="grid gap-6 lg:grid-cols-2">
+      <app-ui-card title="Send notification" subtitle="Notify a team member">
+        <form class="space-y-3" (ngSubmit)="sendNotification()">
+          <app-infinite-select
+            label="Recipient"
+            placeholder="Search and select a user"
+            [options]="userSelectOptions()"
+            [loading]="userSelectLoading()"
+            [value]="sendForm.receiverId"
+            (valueChange)="sendForm.receiverId = $event"
+            (search)="loadUserOptions($event)"
+          />
+          <app-ui-form-textarea label="Message" [(ngModel)]="sendForm.description" name="desc" />
+          <app-ui-form-field label="Link (optional)" [(ngModel)]="sendForm.link" name="link" />
+          <app-ui-button type="submit">Send</app-ui-button>
+        </form>
+      </app-ui-card>
+      <app-ui-card title="Test notification" subtitle="Send a test message">
+        <form class="space-y-3" (ngSubmit)="sendTest()">
+          <app-infinite-select
+            label="Recipient"
+            placeholder="Search and select a user"
+            [options]="userSelectOptions()"
+            [loading]="userSelectLoading()"
+            [value]="testForm.receiverId"
+            (valueChange)="testForm.receiverId = $event"
+            (search)="loadUserOptions($event)"
+          />
+          <app-ui-form-textarea label="Description" [(ngModel)]="testForm.description" name="testDesc" />
+          <app-ui-button type="submit" variant="outline">Send test</app-ui-button>
+        </form>
+      </app-ui-card>
+    </div>
+  }
+
+  <app-ui-card title="My notifications" subtitle="Recent activity and alerts" [noPadding]="true">
+    <ul class="divide-y dark:divide-white/[0.05]">
+      @for (n of store.items(); track n.notificationId) {
+        <li class="flex items-start justify-between gap-4 px-5 py-4" [class.opacity-60]="n.isRead">
+          <div>
+            <p class="text-sm">{{ n.message }}</p>
+            @if (n.link) {
+              <a [href]="n.link" class="text-xs text-brand-600">Open link</a>
+            }
+            <p class="text-xs text-gray-500">{{ n.createdAt | date: 'medium' }}</p>
+          </div>
+          @if (!n.isRead) {
+            <app-ui-button variant="ghost" size="xs" (pressed)="markRead(n)">Mark read</app-ui-button>
+          }
+        </li>
+      } @empty {
+        <li class="px-5 py-12 text-center text-sm text-gray-500">No notifications</li>
+      }
+    </ul>
+    <div appInfiniteScroll [appInfiniteScrollDisabled]="!store.hasMore()" (appInfiniteScroll)="store.loadMore()"></div>
+    <app-load-more-footer [loading]="store.loadingMore()" [hasMore]="store.hasMore()" [shown]="store.items().length" [total]="store.total()" (loadMore)="store.loadMore()" />
+  </app-ui-card>
+</div>

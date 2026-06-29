@@ -1,134 +1,103 @@
- import { Routes } from '@angular/router';
-import { EcommerceComponent } from './pages/dashboard/ecommerce/ecommerce.component';
+import { Routes } from '@angular/router';
 import { ProfileComponent } from './pages/profile/profile.component';
-import { FormElementsComponent } from './pages/forms/form-elements/form-elements.component';
-import { BasicTablesComponent } from './pages/tables/basic-tables/basic-tables.component';
-import { BlankComponent } from './pages/blank/blank.component';
 import { NotFoundComponent } from './pages/other-page/not-found/not-found.component';
 import { AppLayoutComponent } from './shared/layout/app-layout/app-layout.component';
-import { InvoicesComponent } from './pages/invoices/invoices.component';
-import { LineChartComponent } from './pages/charts/line-chart/line-chart.component';
-import { BarChartComponent } from './pages/charts/bar-chart/bar-chart.component';
-import { AlertsComponent } from './pages/ui-elements/alerts/alerts.component';
-import { AvatarElementComponent } from './pages/ui-elements/avatar-element/avatar-element.component';
-import { BadgesComponent } from './pages/ui-elements/badges/badges.component';
-import { ButtonsComponent } from './pages/ui-elements/buttons/buttons.component';
-import { ImagesComponent } from './pages/ui-elements/images/images.component';
-import { VideosComponent } from './pages/ui-elements/videos/videos.component';
 import { SignInComponent } from './pages/auth-pages/sign-in/sign-in.component';
 import { SignUpComponent } from './pages/auth-pages/sign-up/sign-up.component';
-import { CalenderComponent } from './pages/calender/calender.component';
-import { authGuard } from './shared/services/auth.guard';
+import { authGuard, guestGuard, landingGuard } from './shared/services/auth.guard';
 import { adminGuard } from './shared/services/admin.guard';
 import { UserListComponent } from './pages/parametrage/user-management/user-list/user-list.component';
+import { AgileDashboardComponent } from './pages/agile/dashboard/agile-dashboard.component';
+import { ProjectListComponent } from './pages/agile/projects/project-list/project-list.component';
+import { ProjectDetailComponent } from './pages/agile/projects/project-detail/project-detail.component';
+import { SprintBoardComponent } from './pages/agile/board/sprint-board/sprint-board.component';
+import { MyTasksComponent } from './pages/agile/tasks/my-tasks/my-tasks.component';
+import { BacklogComponent } from './pages/agile/backlog/backlog/backlog.component';
+import { IssueDetailComponent } from './pages/agile/issues/issue-detail/issue-detail.component';
+import { NotificationsPageComponent } from './pages/agile/notifications/notifications-page.component';
+import { LandingPageComponent } from './pages/landing/landing-page.component';
 
 export const routes: Routes = [
   {
-    path:'',
-    component:AppLayoutComponent,
+    path: '',
+    pathMatch: 'full',
+    component: LandingPageComponent,
+    canActivate: [landingGuard],
+    title: 'Agile AI — Intelligent sprint delivery',
+  },
+  {
+    path: '',
+    component: AppLayoutComponent,
     canActivate: [authGuard],
-    children:[
+    children: [
       {
-        path: '',
-        component: EcommerceComponent,
-        pathMatch: 'full',
-        title:
-          'Angular Ecommerce Dashboard | TailAdmin - Angular Admin Dashboard Template',
+        path: 'dashboard',
+        component: AgileDashboardComponent,
+        title: 'Dashboard | Agile AI',
       },
       {
-        path:'calendar',
-        component:CalenderComponent,
-        title:'Angular Calender | TailAdmin - Angular Admin Dashboard Template'
+        path: 'projects',
+        component: ProjectListComponent,
+        title: 'Projects | Agile AI',
       },
       {
-        path:'profile',
-        component:ProfileComponent,
-        title:'Angular Profile Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'projects/:projectId',
+        component: ProjectDetailComponent,
+        title: 'Project | Agile AI',
       },
       {
-        path:'form-elements',
-        component:FormElementsComponent,
-        title:'Angular Form Elements Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'projects/:projectId/backlog',
+        component: BacklogComponent,
+        title: 'Backlog | Agile AI',
       },
       {
-        path:'basic-tables',
-        component:BasicTablesComponent,
-        title:'Angular Basic Tables Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'sprints/:sprintId/board',
+        component: SprintBoardComponent,
+        title: 'Sprint board | Agile AI',
       },
       {
-        path:'blank',
-        component:BlankComponent,
-        title:'Angular Blank Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      // support tickets
-      {
-        path:'invoice',
-        component:InvoicesComponent,
-        title:'Angular Invoice Details Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'issues/:issueId',
+        component: IssueDetailComponent,
+        title: 'Issue | Agile AI',
       },
       {
-        path:'line-chart',
-        component:LineChartComponent,
-        title:'Angular Line Chart Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'my-tasks',
+        component: MyTasksComponent,
+        title: 'My tasks | Agile AI',
       },
       {
-        path:'bar-chart',
-        component:BarChartComponent,
-        title:'Angular Bar Chart Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'notifications',
+        component: NotificationsPageComponent,
+        title: 'Notifications | Agile AI',
       },
       {
-        path:'alerts',
-        component:AlertsComponent,
-        title:'Angular Alerts Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'profile',
+        component: ProfileComponent,
+        title: 'Profile | Agile AI',
       },
       {
-        path:'avatars',
-        component:AvatarElementComponent,
-        title:'Angular Avatars Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      {
-        path:'badge',
-        component:BadgesComponent,
-        title:'Angular Badges Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      {
-        path:'buttons',
-        component:ButtonsComponent,
-        title:'Angular Buttons Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      {
-        path:'images',
-        component:ImagesComponent,
-        title:'Angular Images Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      {
-        path:'videos',
-        component:VideosComponent,
-        title:'Angular Videos Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      {
-        path:'parametrage/users',
-        component:UserListComponent,
+        path: 'parametrage/users',
+        component: UserListComponent,
         canActivate: [adminGuard],
-        title:'User Management | Parametrage'
+        title: 'User Management | Agile AI',
       },
-    ]
-  },
-  // auth pages
-  {
-    path:'signin',
-    component:SignInComponent,
-    title:'Angular Sign In Dashboard | TailAdmin - Angular Admin Dashboard Template'
+    ],
   },
   {
-    path:'signup',
-    component:SignUpComponent,
-    title:'Angular Sign Up Dashboard | TailAdmin - Angular Admin Dashboard Template'
+    path: 'signin',
+    component: SignInComponent,
+    canActivate: [guestGuard],
+    title: 'Sign in | Agile AI',
   },
-  // error pages
   {
-    path:'**',
-    component:NotFoundComponent,
-    title:'Angular NotFound Dashboard | TailAdmin - Angular Admin Dashboard Template'
+    path: 'signup',
+    component: SignUpComponent,
+    canActivate: [guestGuard],
+    title: 'Sign up | Agile AI',
+  },
+  {
+    path: '**',
+    component: NotFoundComponent,
+    title: 'Not found | Agile AI',
   },
 ];

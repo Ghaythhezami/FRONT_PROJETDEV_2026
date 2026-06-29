@@ -1,0 +1,93 @@
+<div class="space-y-6">
+  <app-page-breadcrumb pageTitle="Projects" />
+
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-800 dark:text-white/90">Projects</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Open a workspace folder to manage sprints, backlog, and team activity.
+      </p>
+    </div>
+    <app-ui-button (pressed)="openCreateModal()">New project</app-ui-button>
+  </div>
+
+  <app-ui-modal
+    [isOpen]="showCreateModal()"
+    title="Create project"
+    subtitle="Create a new workspace"
+    size="md"
+    [showFooter]="true"
+    (close)="closeCreateModal()"
+  >
+    <form class="space-y-4" id="createProjectForm" (ngSubmit)="createProject()">
+      <app-ui-form-field
+        label="Name"
+        placeholder="Project name"
+        [(ngModel)]="newProject.projectName"
+        name="projectName"
+        [required]="true"
+      />
+      <app-ui-form-field
+        label="Key"
+        placeholder="PROJ"
+        hint="Short uppercase identifier (e.g. AGILE)"
+        [(ngModel)]="newProject.key"
+        name="key"
+        [maxLength]="12"
+        [required]="true"
+      />
+      <app-ui-form-textarea
+        label="Description"
+        placeholder="What is this project about?"
+        [(ngModel)]="newProject.projectDescription"
+        name="description"
+      />
+      @if (createError()) {
+        <app-ui-alert [message]="createError()" variant="error" />
+      }
+    </form>
+    <div modalFooter class="flex w-full justify-end gap-2">
+      <app-ui-button variant="outline" (pressed)="closeCreateModal()">Cancel</app-ui-button>
+      <app-ui-button type="submit" formId="createProjectForm" [loading]="isCreating()">
+        {{ isCreating() ? 'Creating…' : 'Create' }}
+      </app-ui-button>
+    </div>
+  </app-ui-modal>
+
+  <div class="mb-4">
+    <app-search-toolbar
+      placeholder="Search projects…"
+      [total]="store.total()"
+      totalLabel="projects"
+      (searchChange)="onSearch($event)"
+    />
+  </div>
+
+  @if (store.loading() && !store.items().length) {
+    <app-logo-loader [fullscreen]="true" />
+  } @else if (store.error()) {
+    <app-ui-alert [message]="store.error()!" variant="error" />
+  } @else if (store.isEmpty()) {
+    <div class="py-16 text-center text-sm text-gray-500">No projects yet — create your first workspace.</div>
+  } @else {
+    <div class="grid min-w-0 max-w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      @for (project of store.items(); track project.id) {
+        <div class="min-w-0 max-w-full">
+          <app-folder-project-card [project]="project" />
+        </div>
+      }
+    </div>
+    <div
+      appInfiniteScroll
+      [appInfiniteScrollDisabled]="!store.hasMore() || store.loadingMore()"
+      (appInfiniteScroll)="store.loadMore()"
+    ></div>
+    <app-load-more-footer
+      [loading]="store.loadingMore()"
+      [hasMore]="store.hasMore()"
+      [shown]="store.items().length"
+      [total]="store.total()"
+      (loadMore)="store.loadMore()"
+    />
+  }
+</div>

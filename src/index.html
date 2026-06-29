@@ -2,12 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Angular Ecommerce Dashboard | TailAdmin</title>
+  <title>Agile AI — Project Management</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Agile AI — Jira-style agile project management with AI assistance.">
+  <meta name="theme-color" content="#465fff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Agile Ai">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+  <script>
+    (function () {
+      var path = window.location.pathname.replace(/\/+$/, '') || '/';
+      if (path === '/') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+      }
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>
+  <noscript>Agile AI requires JavaScript to run.</noscript>
 </body>
 </html>

@@ -4,63 +4,78 @@ import { AuthUser } from '../../../../shared/services/auth.models';
 import { UserManagementService } from '../../../../shared/services/user-management.service';
 import { RegisterUserDto, UpdateUserDto } from '../../../../shared/services/user-management.models';
 import { UserFormComponent } from '../user-form/user-form.component';
+import { SearchToolbarComponent } from '../../../../shared/components/data/search-toolbar/search-toolbar.component';
+import { TablePaginationComponent } from '../../../../shared/components/data/table-pagination/table-pagination.component';
+import { PaginatedListStore } from '../../../../shared/stores/paginated-list.store';
+import { PageBreadcrumbComponent } from '../../../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
+import {
+  AppModalComponent,
+  UiButtonComponent,
+} from '../../../../shared/ui';
+
+const USERS_PAGE_SIZE = 5;
 
 @Component({
   selector: 'app-user-list',
-  imports: [CommonModule, UserFormComponent],
+  imports: [
+    CommonModule,
+    UserFormComponent,
+    SearchToolbarComponent,
+    TablePaginationComponent,
+    PageBreadcrumbComponent,
+    AppModalComponent,
+    UiButtonComponent,
+  ],
   templateUrl: './user-list.component.html',
 })
 export class UserListComponent implements OnInit {
   private readonly userManagementService = inject(UserManagementService);
 
-  users: AuthUser[] = [];
+  readonly store = new PaginatedListStore<AuthUser>(
+    (query) => this.userManagementService.getUsersPaged(query),
+    USERS_PAGE_SIZE,
+  );
+
   selectedUser: AuthUser | null = null;
   showForm = false;
-  isLoading = false;
   isSaving = false;
-  errorMessage = '';
   formErrorMessage = '';
 
-  ngOnInit() {
-    this.loadUsers();
+  ngOnInit(): void {
+    this.store.loadFirst();
   }
 
-  loadUsers() {
-    this.isLoading = true;
-    this.errorMessage = '';
-
-    this.userManagementService.getAllUsers().subscribe({
-      next: (users) => {
-        this.users = users;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.errorMessage =
-          error?.error?.message ?? error?.message ?? 'Unable to load users.';
-        this.isLoading = false;
-      },
-    });
+  onSearch(term: string): void {
+    this.store.setSearch(term);
   }
 
-  openCreateForm() {
+  onPageChange(page: number): void {
+    this.store.goToPage(page);
+  }
+
+  openCreateForm(): void {
     this.selectedUser = null;
     this.formErrorMessage = '';
     this.showForm = true;
   }
 
-  openEditForm(user: AuthUser) {
+  openEditForm(user: AuthUser): void {
     this.selectedUser = user;
     this.formErrorMessage = '';
     this.showForm = true;
   }
 
-  closeForm() {
+  closeForm(): void {
     this.showForm = false;
     this.selectedUser = null;
     this.formErrorMessage = '';
   }
 
-  createUser(user: RegisterUserDto) {
+  get modalTitle(): string {
+    return this.selectedUser ? 'Edit user' : 'Add user';
+  }
+
+  createUser(user: RegisterUserDto): void {
     this.isSaving = true;
     this.formErrorMessage = '';
 
@@ -68,7 +83,7 @@ export class UserListComponent implements OnInit {
       next: () => {
         this.isSaving = false;
         this.closeForm();
-        this.loadUsers();
+        this.store.loadFirst();
       },
       error: (error) => {
         this.formErrorMessage =
@@ -78,7 +93,7 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  updateUser(user: UpdateUserDto) {
+  updateUser(user: UpdateUserDto): void {
     this.isSaving = true;
     this.formErrorMessage = '';
 
@@ -86,13 +101,13 @@ export class UserListComponent implements OnInit {
       next: () => {
         this.isSaving = false;
         this.closeForm();
-        this.loadUsers();
+        this.store.loadFirst();
       },
       error: (error) => {
         this.formErrorMessage =
           error?.error?.message ??
           error?.message ??
-          'Unable to update user. Please confirm the backend exposes a user update endpoint.';
+          'Unable to update user.';
         this.isSaving = false;
       },
     });

@@ -14,8 +14,10 @@
     <!-- app header start -->
     <app-header/>
     <!-- app header end -->
-    <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+    <div class="min-w-0 overflow-x-hidden p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
       <router-outlet></router-outlet>
     </div>
+    <app-api-toast />
+    <app-confirm-dialog />
   </div>
 </div>
