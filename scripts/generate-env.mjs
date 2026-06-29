@@ -48,6 +48,11 @@ const defaultSignupRole =
   fileVars.DEFAULT_SIGNUP_ROLE ||
   'analyste';
 
+const vapidPublicKey =
+  process.env.VAPID_PUBLIC_KEY ||
+  fileVars.VAPID_PUBLIC_KEY ||
+  'BDFMs4p98XwAYjQfXPVBooBx_T_1zN5voNnRY7yo-Tk3u15eMe3ToIJ9g2dZgUolZpWJmNf1HsJYSKjOIfqUu_8';
+
 const production =
   process.env.NODE_ENV === 'production' ||
   process.env.VERCEL === '1' ||
@@ -58,6 +63,7 @@ export const environment = {
   production: ${production},
   apiBaseUrl: '${apiBaseUrl.replace(/'/g, "\\'")}',
   defaultSignupRole: '${defaultSignupRole.replace(/'/g, "\\'")}',
+  vapidPublicKey: '${vapidPublicKey.replace(/'/g, "\\'")}',
 };
 `;
 

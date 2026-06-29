@@ -68,6 +68,8 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
   isLoading = signal(true);
   errorMessage = signal('');
   movingIssueId = signal<string | null>(null);
+  draggingIssueId = signal<string | null>(null);
+  dragOverColumn = signal<ItemStatus | null>(null);
   showInlineCreate = signal(false);
   projectId = signal('');
 
@@ -244,6 +246,8 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
 
   onDrop(event: DragEvent, status: ItemStatus): void {
     event.preventDefault();
+    this.dragOverColumn.set(null);
+    this.draggingIssueId.set(null);
     const issueId = event.dataTransfer?.getData('issueId');
     if (!issueId) {
       return;
@@ -256,10 +260,23 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
     }
   }
 
-  onDragOver(event: DragEvent): void {
+  onDragOver(event: DragEvent, status: ItemStatus): void {
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = 'move';
+    }
+    this.dragOverColumn.set(status);
+    this.autoScrollBoard(event);
+  }
+
+  onColumnDragLeave(event: DragEvent, status: ItemStatus): void {
+    const current = event.currentTarget as HTMLElement | null;
+    const related = event.relatedTarget as Node | null;
+    if (current && related && current.contains(related)) {
+      return;
+    }
+    if (this.dragOverColumn() === status) {
+      this.dragOverColumn.set(null);
     }
   }
 
@@ -267,6 +284,35 @@ export class SprintBoardComponent implements OnInit, OnDestroy {
     event.dataTransfer?.setData('issueId', issue.id);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
+    }
+    this.draggingIssueId.set(issue.id);
+  }
+
+  onDragEnd(): void {
+    this.draggingIssueId.set(null);
+    this.dragOverColumn.set(null);
+  }
+
+  quickMoveIssue(issue: Issue, status: ItemStatus): void {
+    this.moveIssue(issue, status);
+  }
+
+  isDropTarget(status: ItemStatus): boolean {
+    return this.dragOverColumn() === status && !!this.draggingIssueId();
+  }
+
+  private autoScrollBoard(event: DragEvent): void {
+    const container = (event.currentTarget as HTMLElement)?.closest('.board-scroll');
+    if (!container) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const edge = 72;
+    const speed = 14;
+    if (event.clientX < rect.left + edge) {
+      container.scrollLeft -= speed;
+    } else if (event.clientX > rect.right - edge) {
+      container.scrollLeft += speed;
     }
   }
 }

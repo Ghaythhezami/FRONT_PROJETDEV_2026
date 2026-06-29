@@ -35,6 +35,16 @@
   overflow: hidden;
 }
 
+.landing-hero-band::after {
+  content: '';
+  position: absolute;
+  inset: auto -20% -40% -20%;
+  height: 12rem;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.14) 0%, transparent 70%);
+  animation: landing-hero-glow 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
 .landing-hero-dots {
   position: absolute;
   inset: 0;
@@ -540,6 +550,7 @@
   background: var(--landing-hero);
   color: #fff;
   box-shadow: 0 20px 40px rgba(70, 95, 255, 0.25);
+  animation: landing-float 6s ease-in-out infinite;
 }
 
 .landing-cta-logo {
@@ -612,6 +623,11 @@
 
 @keyframes landing-progress-grow {
   from { width: 0 !important; }
+}
+
+@keyframes landing-hero-glow {
+  0%, 100% { opacity: 0.5; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-12px); }
 }
 
 @media (min-width: 768px) {

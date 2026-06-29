@@ -93,6 +93,7 @@ export class ProjectDetailComponent implements OnInit {
   readonly authService = inject(AuthService);
 
   readonly canManageMembers = computed(() => this.authService.isAdmin());
+  readonly canManageProject = computed(() => this.authService.isAdmin());
 
   project = signal<Project | null>(null);
   isLoadingProject = signal(true);
@@ -459,7 +460,12 @@ export class ProjectDetailComponent implements OnInit {
       return;
     }
     this.executionService.finalize(this.projectId).subscribe({
-      next: () => this.toast.success('Project finalized successfully.'),
+      next: () => {
+        this.toast.success('Project finalized successfully.');
+        this.projectService.getById(this.projectId).subscribe({
+          next: (p) => this.project.set(p),
+        });
+      },
       error: (e) => this.toast.error(e?.error?.message ?? e?.message ?? 'Finalize failed.'),
     });
   }
